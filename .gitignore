@@ -1,3 +1,16 @@
+# iOS
+.DS_Store
+
+# JetBrains IDE
+.idea
+
+# UCI original dataset and description files
+*.data
+*.names
+
+# Downloaded datasets
+datasets/*.csv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
