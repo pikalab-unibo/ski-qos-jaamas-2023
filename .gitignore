@@ -11,6 +11,10 @@
 # Downloaded datasets
 datasets/*.csv
 
+# Generable knowledge
+knowledge/census-income.txt
+knowledge/breast-cancer.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
