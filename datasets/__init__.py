@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Iterable
+import numpy as np
 import pandas as pd
 
 
@@ -15,15 +16,9 @@ class SpliceJunction(object):
     sub_features: list[str] = [f + v for f in features for v in ['a', 'c', 'g', 't']]  # Can't reference features_values
     class_mapping: dict[str, int] = {'exon-intron': 0, 'intron-exon': 1, 'none': 2}
     class_mapping_short: dict[str, int] = {'ei': 0, 'ie': 1, 'n': 2}
-    aggregate_features: dict[str, tuple[str]] = {'a': ('a',), 'c': ('c',),
-                                                 'g': ('g',),
-                                                 't': ('t',),
-                                                 'd': ('a', 'g', 't'),
-                                                 'm': ('a', 'c'),
-                                                 'n': ('a', 'c', 'g', 't'),
-                                                 'r': ('a', 'g'),
-                                                 's': ('c', 'g'),
-                                                 'y': ('c', 't')}
+    aggregate_features: dict[str, tuple[str]] = {'a': ('a',), 'c': ('c',), 'g': ('g',), 't': ('t',),
+                                                 'd': ('a', 'g', 't'), 'm': ('a', 'c'), 'n': ('a', 'c', 'g', 't'),
+                                                 'r': ('a', 'g'), 's': ('c', 'g'), 'y': ('c', 't')}
 
 
 class BreastCancer(object):
@@ -38,10 +33,14 @@ class BreastCancer(object):
 
 class CensusIncome(object):
     data_url: str = UCI_URL + "adult/adult.data"
+    data_test_url: str = UCI_URL + "adult/adult.test"
     file_name: str = PATH / "census-income-data.csv"
+    file_name_test: str = PATH / "census-income-data-test.csv"
     features: list[str] = ["Age", "WorkClass", "FinalWeight", "Education", "EducationNumeric", "MaritalStatus",
                            "Occupation", "Relationship", "Ethnicity", "Sex", "CapitalGain", "CapitalLoss",
                            "HoursPerWeek", "NativeCountry", "income"]
+    categorical_features: list[str] = ['Education', 'Ethnicity', 'MaritalStatus', 'NativeCountry', 'Occupation',
+                                       'Relationship', 'Sex', 'WorkClass']
     class_mapping: dict[str, int] = {'<=50K': 0, '>50K': 1}
 
 
@@ -115,8 +114,23 @@ def load_breast_cancer_dataset(binary_features: bool = False, numeric_output: bo
     return df
 
 
-def load_census_income_dataset(binary_features: bool = False, numeric_output: bool = False) -> pd.DataFrame:
+def load_census_income_dataset(binary_features: bool = False, numeric_output: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
     df: pd.DataFrame = pd.read_csv(CensusIncome.data_url, sep=",", header=None, encoding='utf8')
     df.columns = CensusIncome.features
-    df.income = df.income.apply(lambda x: 0 if x == '<=50K' else 1) if numeric_output else df.income
-    return df
+    df.income = df.income.apply(lambda x: 0 if x == ' <=50K' else 1) if numeric_output else df.income
+    df_test: pd.DataFrame = pd.read_csv(CensusIncome.data_test_url, sep=",", header=None, encoding='utf8', skiprows=1)
+    df_test.columns = CensusIncome.features
+    df_test.income = df.income.apply(lambda x: 0 if x == ' <=50K.' else 1) if numeric_output else df.income
+
+    def binarize(data: pd.DataFrame) -> pd.DataFrame:
+        data = data.copy()
+        data = data.applymap(lambda x: np.NaN if x == ' ?' else x)  # Missing values to NaN
+        data[CensusIncome.categorical_features] = data[CensusIncome.categorical_features].astype('category')
+        category_columns = data.select_dtypes(['category']).columns
+        data[category_columns] = data[category_columns].apply(lambda x: x.cat.codes)  # Category to integers abd NaN to -1
+        return data
+
+    if binary_features:
+        df = binarize(df)
+        df_test = binarize(df_test)
+    return df, df_test
