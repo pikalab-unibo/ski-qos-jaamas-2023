@@ -31,6 +31,7 @@ class LoadDatasets(distutils.cmd.Command):
 
 
 class GenerateMissingKnowledge(distutils.cmd.Command):
+
     description = 'Extract knowledge from the census income dataset'
     user_options = []
 
@@ -57,7 +58,7 @@ class RunExperiments(distutils.cmd.Command):
     def run(self) -> None:
         census_income_knowledge = get_census_income_knowledge()
         splice_junction_knowledge = get_splice_junction_knowledge()
-        poker_knowledge = get_breast_cancer_knowledge()
+        breast_cancer_knowledge = get_breast_cancer_knowledge()
         # TODO: complete with the code for the experiments
         # This is just a sketch to ensure that the knowledge is properly loaded.
         print('\n\n' + 25 * '-' + ' Census Income Knowledge ' + 25 * '-' + '\n\n')
@@ -67,7 +68,7 @@ class RunExperiments(distutils.cmd.Command):
         for rule in splice_junction_knowledge:
             print(rule)
         print('\n\n' + 25 * '-' + ' Poker Knowledge ' + 25 * '-' + '\n\n')
-        for rule in poker_knowledge:
+        for rule in breast_cancer_knowledge:
             print(rule)
 
 
