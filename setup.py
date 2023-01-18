@@ -23,10 +23,14 @@ class LoadDatasets(distutils.cmd.Command):
         self.numeric_out = self.output.lower() == 'y'
 
     def run(self) -> None:
-        load_splice_junction_dataset(self.binary_f, self.numeric_out).to_csv(SpliceJunction.file_name, index=False)
+        splice_train, splice_test = load_splice_junction_dataset(self.binary_f, self.numeric_out)
+        splice_train.to_csv(SpliceJunction.file_name, index=False)
+        splice_test.to_csv(SpliceJunction.file_name_test, index=False)
+
         breast_train, breast_test = load_breast_cancer_dataset(self.binary_f, self.numeric_out)
         breast_train.to_csv(BreastCancer.file_name, index=False)
         breast_test.to_csv(BreastCancer.file_name_test, index=False)
+
         census_train, census_test = load_census_income_dataset(self.binary_f, self.numeric_out)
         census_train.to_csv(CensusIncome.file_name, index=False)
         census_test.to_csv(CensusIncome.file_name_test, index=False)

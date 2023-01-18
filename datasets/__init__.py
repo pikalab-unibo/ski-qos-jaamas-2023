@@ -12,6 +12,7 @@ UCI_URL: str = "https://archive.ics.uci.edu/ml/machine-learning-databases/"
 class SpliceJunction(object):
     data_url: str = UCI_URL + "molecular-biology/splice-junction-gene-sequences/splice.data"
     file_name: str = PATH / "splice-junction-data.csv"
+    file_name_test: str = PATH / "splice-junction-data-test.csv"
     features: list[str] = ['X' + (str(i) if i > 0 else "_" + str(abs(i))) for i in
                            list(range(-30, 0)) + list(range(1, 31))]
     features_values: list[str] = ['a', 'c', 'g', 't']
@@ -93,7 +94,10 @@ def load_splice_junction_dataset(binary_features: bool = False, numeric_output: 
         # Original dataset
         df.iloc[:, -1] = new_y
         df.columns = SpliceJunction.features + ['class']
-    return df
+
+    # Split the dataframe into train and test sets
+    train_df, test_df = train_test_split(df, test_size=0.2)
+    return train_df, test_df
 
 
 def load_breast_cancer_dataset(binary_features: bool = False, numeric_output: bool = False) -> pd.DataFrame:
@@ -104,7 +108,7 @@ def load_breast_cancer_dataset(binary_features: bool = False, numeric_output: bo
     # Split the dataframe into train and test sets
     train_df, test_df = train_test_split(df, test_size=0.2)
 
-    def one_hot_breast_cancer(train: pd.DataFrame, test:pd.DataFrame):
+    def one_hot_breast_cancer(train: pd.DataFrame, test: pd.DataFrame):
         new_train = train.drop('diagnosis', axis=1)
         new_test = test.drop('diagnosis', axis=1)
         new_columns = [f"{col}{i}" for col in train.columns[:-1] for i in range(1, 11)]
@@ -138,7 +142,7 @@ def load_census_income_dataset(binary_features: bool = False, numeric_output: bo
         data['HoursPerWeek'] = np.where(data['HoursPerWeek'] < 24, 0,
                                         np.where(data['HoursPerWeek'].between(24, 40), 1, 2))
         data['CapitalGain'] = data['CapitalGain'].apply(lambda x: 0 if x == 0 else 1)
-        data['CapitalLoss>'] = data['CapitalLoss'].apply(lambda x: 0 if x == 0 else 1)
+        data['CapitalLoss'] = data['CapitalLoss'].apply(lambda x: 0 if x == 0 else 1)
         data['Age'] = np.where(data['Age'] < 18, 0,
                                np.where(data['Age'].between(18, 30), 1,
                                         np.where(data['Age'].between(30, 55), 2, 3)))
