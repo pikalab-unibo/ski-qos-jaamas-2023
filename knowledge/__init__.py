@@ -16,8 +16,8 @@ from datasets import PATH as DATA_PATH, SpliceJunction
 PATH = Path(__file__).parents[0]
 
 
-MAX_FEATURES_IN_RULE: int = 100
-MAX_RULES: int = 100
+MAX_FEATURES_IN_RULE: int = 20
+MAX_RULES: int = 20
 
 # Ad-hoc symbols for the provided knowledge for splice junction
 VARIABLE_BASE_NAME = 'X'

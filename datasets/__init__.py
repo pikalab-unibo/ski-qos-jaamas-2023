@@ -48,7 +48,7 @@ class CensusIncome(object):
     class_mapping: dict[str, int] = {'<=50K': 0, '>50K': 1}
 
 
-def load_splice_junction_dataset(binary_features: bool = False, numeric_output: bool = False) -> pd.DataFrame:
+def load_splice_junction_dataset(binary_features: bool = False, numeric_output: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
     df: pd.DataFrame = pd.read_csv(SpliceJunction.data_url, sep=r",\s*", header=None, encoding='utf8')
     df.columns = ["class", "origin", "DNA"]
 
@@ -100,7 +100,7 @@ def load_splice_junction_dataset(binary_features: bool = False, numeric_output: 
     return train_df, test_df
 
 
-def load_breast_cancer_dataset(binary_features: bool = False, numeric_output: bool = False) -> pd.DataFrame:
+def load_breast_cancer_dataset(binary_features: bool = False, numeric_output: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
     df: pd.DataFrame = pd.read_csv(BreastCancer.data_url, sep=",", header=None, encoding='utf8').iloc[:, 1:]
     df.columns = BreastCancer.features
     df.diagnosis = df.diagnosis.apply(lambda x: 0 if x == 2 else 1) if numeric_output else df.diagnosis
@@ -119,8 +119,8 @@ def load_breast_cancer_dataset(binary_features: bool = False, numeric_output: bo
         new_train['diagnosis'], new_test['diagnosis'] = train_df.diagnosis, test_df.diagnosis
         return new_train, new_test
 
-    if binary_features:
-        train_df, test_df = one_hot_breast_cancer(train_df, test_df)
+    # if binary_features:
+    #     train_df, test_df = one_hot_breast_cancer(train_df, test_df)
     return train_df, test_df
 
 
@@ -129,12 +129,12 @@ def load_census_income_dataset(binary_features: bool = False, numeric_output: bo
     df: pd.DataFrame = pd.read_csv(CensusIncome.data_url, sep=",", header=None, encoding='utf8')
     df.drop(2, axis=1, inplace=True)
     df.columns = CensusIncome.features
-    df.income = df.income.apply(lambda x: 0 if x == ' <=50K.' else 1) if numeric_output else df.income
+    df.income = df.income.apply(lambda x: 0 if x.replace(" ", "") == '<=50K' else 1) if numeric_output else df.income
 
     df_test: pd.DataFrame = pd.read_csv(CensusIncome.data_test_url, sep=",", header=None, encoding='utf8', skiprows=1)
     df_test.drop(2, axis=1, inplace=True)
     df_test.columns = CensusIncome.features
-    df_test.income = df.income.apply(lambda x: 0 if x == ' <=50K.' else 1) if numeric_output else df.income
+    df_test.income = df_test.income.apply(lambda x: 0 if x.replace(" ", "") == '<=50K.' else 1) if numeric_output else df_test.income
 
     def binarize(data: pd.DataFrame) -> pd.DataFrame:
         data = data.copy()
@@ -149,9 +149,7 @@ def load_census_income_dataset(binary_features: bool = False, numeric_output: bo
 
         data[CensusIncome.categorical_features] = data[CensusIncome.categorical_features].astype('category')
         category_columns = data.select_dtypes(['category']).columns
-        data[category_columns] = data[category_columns].apply(
-            lambda x: x.cat.codes)  # Category to integers abd NaN to -1
-
+        data[category_columns] = data[category_columns].apply(lambda x: x.cat.codes)  # Category to integers & NaN to -1
         return data
 
     if binary_features:
