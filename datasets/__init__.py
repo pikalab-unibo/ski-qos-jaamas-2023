@@ -40,15 +40,16 @@ class CensusIncome(object):
     data_test_url: str = UCI_URL + "adult/adult.test"
     file_name: str = PATH / "census-income-data.csv"
     file_name_test: str = PATH / "census-income-data-test.csv"
-    features: list[str] = ["Age", "WorkClass", "Education", "EducationNumeric", "MaritalStatus",
+    features: list[str] = ["Age", "WorkClass", "Fnlwgt", "Education", "EducationNumeric", "MaritalStatus",
                            "Occupation", "Relationship", "Ethnicity", "Sex", "CapitalGain", "CapitalLoss",
                            "HoursPerWeek", "NativeCountry", "income"]
-    categorical_features: list[str] = ['Education', 'Ethnicity', 'MaritalStatus', 'NativeCountry', 'Occupation',
-                                       'Relationship', 'Sex', 'WorkClass', 'Age', 'HoursPerWeek']
+    one_hot_features: list[str] = ["WorkClass", "MaritalStatus", "Occupation", "Relationship", "NativeCountry"]
+
     class_mapping: dict[str, int] = {'<=50K': 0, '>50K': 1}
 
 
-def load_splice_junction_dataset(binary_features: bool = False, numeric_output: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
+def load_splice_junction_dataset(binary_features: bool = False, numeric_output: bool = False) -> tuple[
+    pd.DataFrame, pd.DataFrame]:
     df: pd.DataFrame = pd.read_csv(SpliceJunction.data_url, sep=r",\s*", header=None, encoding='utf8')
     df.columns = ["class", "origin", "DNA"]
 
@@ -100,7 +101,8 @@ def load_splice_junction_dataset(binary_features: bool = False, numeric_output: 
     return train_df, test_df
 
 
-def load_breast_cancer_dataset(binary_features: bool = False, numeric_output: bool = False) -> tuple[pd.DataFrame, pd.DataFrame]:
+def load_breast_cancer_dataset(binary_features: bool = False, numeric_output: bool = False) -> tuple[
+    pd.DataFrame, pd.DataFrame]:
     df: pd.DataFrame = pd.read_csv(BreastCancer.data_url, sep=",", header=None, encoding='utf8').iloc[:, 1:]
     df.columns = BreastCancer.features
     df.diagnosis = df.diagnosis.apply(lambda x: 0 if x == 2 else 1) if numeric_output else df.diagnosis
@@ -108,48 +110,39 @@ def load_breast_cancer_dataset(binary_features: bool = False, numeric_output: bo
     # Split the dataframe into train and test sets
     train_df, test_df = train_test_split(df, test_size=0.2)
 
-    def one_hot_breast_cancer(train: pd.DataFrame, test: pd.DataFrame):
-        new_train = train.drop('diagnosis', axis=1)
-        new_test = test.drop('diagnosis', axis=1)
-        new_columns = [f"{col}{i}" for col in train.columns[:-1] for i in range(1, 11)]
-
-        encoder = OneHotEncoder(handle_unknown='ignore').fit(new_train)
-        new_train = pd.DataFrame(encoder.transform(new_train).astype(int).toarray(), columns=new_columns, index=train.index)
-        new_test = pd.DataFrame(encoder.transform(new_test).astype(int).toarray(), columns=new_columns, index=test.index)
-        new_train['diagnosis'], new_test['diagnosis'] = train_df.diagnosis, test_df.diagnosis
-        return new_train, new_test
-
-    # if binary_features:
-    #     train_df, test_df = one_hot_breast_cancer(train_df, test_df)
     return train_df, test_df
 
 
 def load_census_income_dataset(binary_features: bool = False, numeric_output: bool = False) -> tuple[
     pd.DataFrame, pd.DataFrame]:
     df: pd.DataFrame = pd.read_csv(CensusIncome.data_url, sep=",", header=None, encoding='utf8')
-    df.drop(2, axis=1, inplace=True)
     df.columns = CensusIncome.features
+    df.drop(["Fnlwgt", "Education", "Ethnicity"], axis=1, inplace=True)
     df.income = df.income.apply(lambda x: 0 if x.replace(" ", "") == '<=50K' else 1) if numeric_output else df.income
 
     df_test: pd.DataFrame = pd.read_csv(CensusIncome.data_test_url, sep=",", header=None, encoding='utf8', skiprows=1)
-    df_test.drop(2, axis=1, inplace=True)
     df_test.columns = CensusIncome.features
-    df_test.income = df_test.income.apply(lambda x: 0 if x.replace(" ", "") == '<=50K.' else 1) if numeric_output else df_test.income
+    df_test.drop(["Fnlwgt", "Education", "Ethnicity"], axis=1, inplace=True)
+    df_test.income = df_test.income.apply(
+        lambda x: 0 if x.replace(" ", "") == '<=50K.' else 1) if numeric_output else df_test.income
 
-    def binarize(data: pd.DataFrame) -> pd.DataFrame:
-        data = data.copy()
-        data = data.applymap(lambda x: np.NaN if x == ' ?' else x)  # Missing values to NaN
+    def binarize(df: pd.DataFrame) -> pd.DataFrame:
+        data = df.iloc[:, :-1]
+        data.drop(CensusIncome.one_hot_features, axis=1, inplace=True)
+        data = data.applymap(lambda x: np.NaN if x == ' ?' else x)
+
         data['HoursPerWeek'] = np.where(data['HoursPerWeek'] < 24, 0,
                                         np.where(data['HoursPerWeek'].between(24, 40), 1, 2))
         data['CapitalGain'] = data['CapitalGain'].apply(lambda x: 0 if x == 0 else 1)
         data['CapitalLoss'] = data['CapitalLoss'].apply(lambda x: 0 if x == 0 else 1)
+        data['Sex'] = data['Sex'].apply(lambda x: 0 if x == 'Male' else 1)
         data['Age'] = np.where(data['Age'] < 18, 0,
                                np.where(data['Age'].between(18, 30), 1,
                                         np.where(data['Age'].between(30, 55), 2, 3)))
+        one_hot = pd.get_dummies(df[CensusIncome.one_hot_features].apply(lambda x: x.str.upper()),
+                                 columns=CensusIncome.one_hot_features)
+        data = pd.concat([data, one_hot, df.income], axis=1)
 
-        data[CensusIncome.categorical_features] = data[CensusIncome.categorical_features].astype('category')
-        category_columns = data.select_dtypes(['category']).columns
-        data[category_columns] = data[category_columns].apply(lambda x: x.cat.codes)  # Category to integers & NaN to -1
         return data
 
     if binary_features:
