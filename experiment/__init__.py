@@ -4,7 +4,8 @@ import numpy as np
 from tensorflow.keras import Model, Input
 from tensorflow.keras.layers import Dense
 from datasets import SpliceJunction, BreastCancer, CensusIncome
-from knowledge import get_census_income_knowledge, get_splice_junction_knowledge, get_breast_cancer_knowledge
+from psyki.logic.prolog import TuProlog
+from knowledge import PATH as KNOWLEDGE_PATH
 
 
 class ExperimentSKIQOS:
@@ -68,7 +69,7 @@ class ExperimentSKIQOS:
         feature_mapping = {k: v for k, v in
                            zip(splice_junction_train.columns, list(range(len(splice_junction_train.columns))))}
 
-        splice_junction_knowledge = get_splice_junction_knowledge()
+        splice_junction_knowledge = TuProlog.from_file(str(KNOWLEDGE_PATH / "splice-junction.pl")).formulae #get_splice_junction_knowledge()
 
         train_x, train_y = splice_junction_train.iloc[:, :-1], splice_junction_train.iloc[:, -1]
         test_x, test_y = splice_junction_test.iloc[:, :-1], splice_junction_test.iloc[:, -1]
@@ -90,7 +91,7 @@ class ExperimentSKIQOS:
         feature_mapping = {k: v for k, v in
                            zip(census_income_train.columns, list(range(len(census_income_train.columns))))}
 
-        census_income_knowledge = get_census_income_knowledge()
+        census_income_knowledge = TuProlog.from_file(str(KNOWLEDGE_PATH / "census-income.txt")).formulae #get_census_income_knowledge()
         train_x, train_y = census_income_train.iloc[:, :-1], census_income_train.iloc[:, -1]
         test_x, test_y = census_income_test.iloc[:, :-1], census_income_test.iloc[:, -1]
 
@@ -111,7 +112,7 @@ class ExperimentSKIQOS:
         feature_mapping = {k: v for k, v in
                            zip(breast_cancer_train.columns, list(range(len(breast_cancer_train.columns))))}
 
-        breast_cancer_knowledge = get_breast_cancer_knowledge()
+        breast_cancer_knowledge = TuProlog.from_file(str(KNOWLEDGE_PATH / "breast-cancer.txt")).formulae #get_breast_cancer_knowledge()
 
         train_x, train_y = breast_cancer_train.iloc[:, :-1], breast_cancer_train.iloc[:, -1]
         test_x, test_y = breast_cancer_test.iloc[:, :-1], breast_cancer_test.iloc[:, -1]
