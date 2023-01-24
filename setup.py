@@ -1,9 +1,9 @@
 import distutils.cmd
+from psyki.logic.prolog import TuProlog
 from setuptools import setup, find_packages
 from datasets import load_splice_junction_dataset, load_breast_cancer_dataset, load_census_income_dataset, \
     SpliceJunction, BreastCancer, CensusIncome
-from knowledge import get_census_income_knowledge, get_splice_junction_knowledge, \
-    get_breast_cancer_knowledge, generate_missing_knowledge
+from knowledge import generate_missing_knowledge, PATH as KNOWLEDGE_PATH
 
 
 class LoadDatasets(distutils.cmd.Command):
@@ -62,9 +62,9 @@ class RunExperiments(distutils.cmd.Command):
         pass
 
     def run(self) -> None:
-        census_income_knowledge = get_census_income_knowledge()
-        splice_junction_knowledge = get_splice_junction_knowledge()
-        breast_cancer_knowledge = get_breast_cancer_knowledge()
+        census_income_knowledge = TuProlog.from_file(str(KNOWLEDGE_PATH / "census-income.pl")).formulae
+        splice_junction_knowledge = TuProlog.from_file(str(KNOWLEDGE_PATH / "splice-junction.pl")).formulae
+        breast_cancer_knowledge = TuProlog.from_file(str(KNOWLEDGE_PATH / "breast-cancer.pl")).formulae
         # TODO: complete with the code for the experiments
         # This is just a sketch to ensure that the knowledge is properly loaded.
         print('\n\n' + 25 * '-' + ' Census Income Knowledge ' + 25 * '-' + '\n\n')

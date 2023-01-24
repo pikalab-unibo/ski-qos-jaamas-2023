@@ -1,13 +1,9 @@
-import unittest
 import pandas as pd
-
 from psyki.qos import QoS
 import numpy as np
-from psyki.qos.utils import split_dataset
 from tensorflow.keras import Model, Input
-from tensorflow.keras.layers import Dense, Dropout
-from datasets import load_splice_junction_dataset, load_breast_cancer_dataset, load_census_income_dataset, \
-    SpliceJunction, BreastCancer, CensusIncome
+from tensorflow.keras.layers import Dense
+from datasets import SpliceJunction, BreastCancer, CensusIncome
 from knowledge import get_census_income_knowledge, get_splice_junction_knowledge, get_breast_cancer_knowledge
 
 
