@@ -1,9 +1,9 @@
+import re
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Callable
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import OneHotEncoder
 
 PATH = Path(__file__).parents[0]
 UCI_URL: str = "https://archive.ics.uci.edu/ml/machine-learning-databases/"
@@ -44,7 +44,6 @@ class CensusIncome(object):
                            "Occupation", "Relationship", "Ethnicity", "Sex", "CapitalGain", "CapitalLoss",
                            "HoursPerWeek", "NativeCountry", "income"]
     one_hot_features: list[str] = ["WorkClass", "MaritalStatus", "Occupation", "Relationship", "NativeCountry"]
-
     class_mapping: dict[str, int] = {'<=50K': 0, '>50K': 1}
 
 
@@ -131,18 +130,20 @@ def load_census_income_dataset(binary_features: bool = False, numeric_output: bo
         data.drop(CensusIncome.one_hot_features, axis=1, inplace=True)
         data = data.applymap(lambda x: np.NaN if x == ' ?' else x)
 
-        data['HoursPerWeek'] = np.where(data['HoursPerWeek'] < 24, 0,
-                                        np.where(data['HoursPerWeek'].between(24, 40), 1, 2))
+        # Discretization
+        # data['HoursPerWeek'] = np.where(data['HoursPerWeek'] < 24, 0, np.where(data['HoursPerWeek'].between(24, 40), 1, 2))
+        # CapitalGain, CapitalLoss and Sex are binarized
         data['CapitalGain'] = data['CapitalGain'].apply(lambda x: 0 if x == 0 else 1)
         data['CapitalLoss'] = data['CapitalLoss'].apply(lambda x: 0 if x == 0 else 1)
         data['Sex'] = data['Sex'].apply(lambda x: 0 if x == 'Male' else 1)
-        data['Age'] = np.where(data['Age'] < 18, 0,
-                               np.where(data['Age'].between(18, 30), 1,
-                                        np.where(data['Age'].between(30, 55), 2, 3)))
-        one_hot = pd.get_dummies(df[CensusIncome.one_hot_features].apply(lambda x: x.str.upper()),
-                                 columns=CensusIncome.one_hot_features)
+        # data['Age'] = np.where(data['Age'] < 18, 0, np.where(data['Age'].between(18, 30), 1, np.where(data['Age'].between(30, 55), 2, 3)))
+        one_hot = pd.get_dummies(df[CensusIncome.one_hot_features].apply(lambda x: x.str.upper()), columns=CensusIncome.one_hot_features)
+        callback: Callable = lambda pat: pat.group(1) + "_" + pat.group(2).lower()
+        one_hot.columns = [re.sub(r"([A-Z][a-zA-Z]*)[_][ ](.*)", callback, f) for f in one_hot.columns] # r"\g<1>" + '_' + r"\g<2>".lower()
+        one_hot.columns = [f.replace('?', 'unknown') for f in one_hot.columns]
+        one_hot.columns = [f.replace('-', '_') for f in one_hot.columns]
+        one_hot.columns = [f.replace('&', '_') for f in one_hot.columns]
         data = pd.concat([data, one_hot, df.income], axis=1)
-
         return data
 
     if binary_features:

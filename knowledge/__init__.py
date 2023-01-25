@@ -25,19 +25,16 @@ def generate_missing_knowledge():
         predictor.fit(train_x, train_y)
         extractor = Extractor.cart(predictor, max_depth=MAX_FEATURES_IN_RULE, max_leaves=MAX_RULES)
         knowledge = extractor.extract(train)
-        # if data_name == 'breast-cancer':
-        #     textual_knowledge = pretty_theory(knowledge)
-        #     textual_knowledge = re.sub(r"([A-Z][a-zA-Z0-9]*)[ ]>[ ]([+-]?([0-9]*))[.]?[0-9]+", r"\g<1>",
-        #                                textual_knowledge)
-        #     textual_knowledge = re.sub(r"([A-Z][a-zA-Z0-9]*)[ ]=<[ ]([+-]?([0-9]*))[.]?[0-9]+", r"not(\g<1>)",
-        #                                textual_knowledge)
-        #     textual_knowledge = re.sub(r"(diagnosis)\((.*, )('1')\)", r"class(\g<2>malignant)", textual_knowledge)
-        #     textual_knowledge = re.sub(r"(diagnosis)\((.*, )('0')\)", r"class(\g<2>benign)", textual_knowledge)
-        # else:
-        #     textual_knowledge = pretty_theory(knowledge)
-        textual_knowledge = pretty_theory(knowledge)
-        with open(PATH / (data_name + ".txt"), "w") as text_file:
-            text_file.write(textual_knowledge)
+        knowledge = pretty_theory(knowledge)
+        # Substitute X =< N.5 with X < N
+        knowledge = re.sub(r"([A-Z][a-zA-Z0-9_]*)[ ]=<[ ]([+-]?([0-9]*))[.]?[0-9]+", r"\g<1> < \g<2>", knowledge)
+        # Substitute X > N.5 with X > N
+        knowledge = re.sub(r"([A-Z][a-zA-Z0-9_]*)[ ]>[ ]([+-]?([0-9]*))[.]?[0-9]+", r"\g<1> > \g<2>", knowledge)
+        # Substitute 0.0 with 0 and 1.0 with 1
+        knowledge = re.sub(r"0.0", r"0", knowledge)
+        knowledge = re.sub(r"1.0", r"1", knowledge)
+        with open(PATH / (data_name + ".pl"), "w") as text_file:
+            text_file.write(knowledge)
 
     generate_knowledge('census-income')
     generate_knowledge('breast-cancer')

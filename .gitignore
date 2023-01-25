@@ -12,8 +12,8 @@
 datasets/*.csv
 
 # Generable knowledge
-knowledge/census-income.txt
-knowledge/breast-cancer.txt
+knowledge/census-income.pl
+knowledge/breast-cancer.pl
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
