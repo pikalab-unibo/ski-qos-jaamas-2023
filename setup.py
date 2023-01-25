@@ -73,14 +73,14 @@ class RunExperiments(distutils.cmd.Command):
         print('\n\n' + 25 * '-' + ' Splice Junction Knowledge ' + 25 * '-' + '\n\n')
         for rule in splice_junction_knowledge:
             print(rule)
-        print('\n\n' + 25 * '-' + ' Poker Knowledge ' + 25 * '-' + '\n\n')
+        print('\n\n' + 25 * '-' + ' Breast Cancer Knowledge ' + 25 * '-' + '\n\n')
         for rule in breast_cancer_knowledge:
             print(rule)
 
 
 setup(
-    name='Ski qos',  # Required
-    description='SKI qos experiments',
+    name='SKI QoS',  # Required
+    description='SKI QoS experiments',
     license='Apache 2.0 License',
     url='https://github.com/pikalab-unibo/ski-qos-jaamas-experiments-2022',
     author='Matteo Magnini',
@@ -99,9 +99,9 @@ setup(
     include_package_data=True,
     python_requires='>=3.9.0, <3.10',
     install_requires=[
-        'psyki>=0.2.10',
-        'psyke>=0.3.2.dev8',
-        'tensorflow>=2.7.0',
+        'psyki>=0.2.15.dev2',
+        'psyke>=0.3.3.dev13',
+        'tensorflow>=2.11.0',
         'numpy>=1.22.3',
         'scikit-learn>=1.0.2',
         'pandas>=1.4.2',

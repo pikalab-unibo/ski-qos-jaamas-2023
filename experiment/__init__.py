@@ -1,11 +1,13 @@
 import pandas as pd
-from psyki.qos import QoS
 import numpy as np
-from tensorflow.keras import Model, Input
+from tensorflow.keras import Input
+from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Dense
+from psyki.qos.qos import QoS
 from datasets import SpliceJunction, BreastCancer, CensusIncome
 from psyki.logic.prolog import TuProlog
 from knowledge import PATH as KNOWLEDGE_PATH
+from datasets import PATH as DATA_PATH
 
 
 class ExperimentSKIQOS:
@@ -62,73 +64,49 @@ class ExperimentSKIQOS:
         qos.compute(verbose=True)
 
     @staticmethod
-    def splice_data():
-
-        splice_junction_train = pd.read_csv('../datasets/splice-junction-data.csv')
-        splice_junction_test = pd.read_csv('../datasets/splice-junction-data-test.csv')
-        feature_mapping = {k: v for k, v in
-                           zip(splice_junction_train.columns, list(range(len(splice_junction_train.columns))))}
-
-        splice_junction_knowledge = TuProlog.from_file(str(KNOWLEDGE_PATH / "splice-junction.pl")).formulae #get_splice_junction_knowledge()
-
-        train_x, train_y = splice_junction_train.iloc[:, :-1], splice_junction_train.iloc[:, -1]
-        test_x, test_y = splice_junction_test.iloc[:, :-1], splice_junction_test.iloc[:, -1]
-
+    def split_dataset(train, test):
+        train_x, train_y = train.iloc[:, :-1], train.iloc[:, -1:]
+        test_x, test_y = test.iloc[:, :-1], test.iloc[:, -1:]
         dataset_split = dict(train_x=train_x,
                              train_y=train_y,
                              test_x=test_x,
                              test_y=test_y,
                              input_size=train_x.shape[-1],
-                             output_size=np.max(train_y) + 1)
+                             output_size=len(np.unique(train_y)))
+        return dataset_split
 
-        return dataset_split, feature_mapping, SpliceJunction.class_mapping_short, splice_junction_knowledge
+    @staticmethod
+    def splice_data():
+
+        train = pd.read_csv(DATA_PATH / "splice-junction-data.csv")
+        test = pd.read_csv(DATA_PATH / "splice-junction-data-test.csv")
+        feature_mapping = {k: v for k, v in zip(train.columns, list(range(len(train.columns))))}
+        knowledge = TuProlog.from_file(str(KNOWLEDGE_PATH / "splice-junction.pl")).formulae
+        dataset_split = ExperimentSKIQOS.split_dataset(train, test)
+        return dataset_split, feature_mapping, SpliceJunction.class_mapping_short, knowledge
 
     @staticmethod
     def census_data():
 
-        census_income_train = pd.read_csv('../datasets/census-income-data.csv')
-        census_income_test = pd.read_csv('../datasets/census-income-data-test.csv')
-        feature_mapping = {k: v for k, v in
-                           zip(census_income_train.columns, list(range(len(census_income_train.columns))))}
-
-        census_income_knowledge = TuProlog.from_file(str(KNOWLEDGE_PATH / "census-income.txt")).formulae #get_census_income_knowledge()
-        train_x, train_y = census_income_train.iloc[:, :-1], census_income_train.iloc[:, -1]
-        test_x, test_y = census_income_test.iloc[:, :-1], census_income_test.iloc[:, -1]
-
-        dataset_split = dict(train_x=train_x,
-                             train_y=train_y,
-                             test_x=test_x,
-                             test_y=test_y,
-                             input_size=train_x.shape[-1],
-                             output_size=np.max(train_y) + 1)
-
-        return dataset_split, feature_mapping, CensusIncome.class_mapping, census_income_knowledge
+        train = pd.read_csv(DATA_PATH / "census-income-data.csv")
+        test = pd.read_csv(DATA_PATH / "census-income-data-test.csv")
+        feature_mapping = {k: v for k, v in zip(train.columns, list(range(len(train.columns))))}
+        knowledge = TuProlog.from_file(str(KNOWLEDGE_PATH / "census-income.pl")).formulae
+        dataset_split = ExperimentSKIQOS.split_dataset(train, test)
+        return dataset_split, feature_mapping, CensusIncome.class_mapping, knowledge
 
     @staticmethod
     def breast_data():
 
-        breast_cancer_train = pd.read_csv('../datasets/breast-cancer-data.csv')
-        breast_cancer_test = pd.read_csv('../datasets/breast-cancer-data-test.csv')
-        feature_mapping = {k: v for k, v in
-                           zip(breast_cancer_train.columns, list(range(len(breast_cancer_train.columns))))}
-
-        breast_cancer_knowledge = TuProlog.from_file(str(KNOWLEDGE_PATH / "breast-cancer.txt")).formulae #get_breast_cancer_knowledge()
-
-        train_x, train_y = breast_cancer_train.iloc[:, :-1], breast_cancer_train.iloc[:, -1]
-        test_x, test_y = breast_cancer_test.iloc[:, :-1], breast_cancer_test.iloc[:, -1]
-
-        dataset_split = dict(train_x=train_x,
-                             train_y=train_y,
-                             test_x=test_x,
-                             test_y=test_y,
-                             input_size=train_x.shape[-1],
-                             output_size=np.max(train_y) + 1)
-
-        return dataset_split, feature_mapping, BreastCancer.class_mapping_short, breast_cancer_knowledge
+        train = pd.read_csv(DATA_PATH / "breast-cancer-data.csv")
+        test = pd.read_csv(DATA_PATH / "breast-cancer-data-test.csv")
+        feature_mapping = {k: v for k, v in zip(train.columns, list(range(len(train.columns))))}
+        knowledge = TuProlog.from_file(str(KNOWLEDGE_PATH / "breast-cancer.pl")).formulae
+        dataset_split = ExperimentSKIQOS.split_dataset(train, test)
+        return dataset_split, feature_mapping, BreastCancer.class_mapping_short, knowledge
 
 
-def create_standard_fully_connected_nn(input_size: int, output_size, layers: int, neurons: int,
-                                       activation: str) -> Model:
+def create_standard_fully_connected_nn(input_size: int, output_size, layers: int, neurons: int, activation: str) -> Model:
     inputs = Input((input_size,))
     x = Dense(neurons, activation=activation)(inputs)
     for _ in range(1, layers):
@@ -138,23 +116,7 @@ def create_standard_fully_connected_nn(input_size: int, output_size, layers: int
 
 
 if __name__ == '__main__':
-    flags = dict(energy=True,
-                 latency=True,
-                 memory=True,
-                 grid_search=False)
-
-    arguments = dict(optimizer='sgd',
-                     loss='sparse_categorical_crossentropy',
-                     batch=16,
-                     epochs=10,
-                     metric='accuracy',
-                     threshold=0.8,
-                     max_neurons_width=[500, 200, 100],
-                     max_neurons_depth=100,
-                     max_layers=8,
-                     grid_levels=4)
-
-    ExperimentSKIQOS(dataset_name='breast',
-                     injector='kins',
-                     hyper=arguments,
-                     flags=flags).test_qos()
+    flags = dict(energy=True, latency=True, memory=True, grid_search=False)
+    arguments = dict(optimizer='sgd', loss='sparse_categorical_crossentropy', batch=16, epochs=10, metric='accuracy',
+                     threshold=0.8, max_neurons_width=[500, 200, 100], max_neurons_depth=100, max_layers=8, grid_levels=4)
+    ExperimentSKIQOS(dataset_name='breast', injector='kins', hyper=arguments, flags=flags).test_qos()
