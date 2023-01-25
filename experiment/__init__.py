@@ -1,9 +1,9 @@
 import pandas as pd
 import numpy as np
-from tensorflow.keras import Input
-from tensorflow.keras.models import Model
+from psyki.qos import QoS
+from psyki.ski import Injector
+from tensorflow.keras import Model, Input
 from tensorflow.keras.layers import Dense
-from psyki.qos.qos import QoS
 from datasets import SpliceJunction, BreastCancer, CensusIncome
 from psyki.logic.prolog import TuProlog
 from knowledge import PATH as KNOWLEDGE_PATH
@@ -59,8 +59,7 @@ class ExperimentSKIQOS:
                                 threshold=self.hyper['threshold'],
                                 alpha=0.8)
 
-        qos = QoS(metric_arguments=metric_arguments,
-                  flags=self.flags)
+        qos = QoS(metric_arguments=metric_arguments, flags=self.flags)
         qos.compute(verbose=True)
 
     @staticmethod
@@ -116,7 +115,15 @@ def create_standard_fully_connected_nn(input_size: int, output_size, layers: int
 
 
 if __name__ == '__main__':
-    flags = dict(energy=True, latency=True, memory=True, grid_search=False)
-    arguments = dict(optimizer='sgd', loss='sparse_categorical_crossentropy', batch=16, epochs=10, metric='accuracy',
-                     threshold=0.8, max_neurons_width=[500, 200, 100], max_neurons_depth=100, max_layers=8, grid_levels=4)
-    ExperimentSKIQOS(dataset_name='breast', injector='kins', hyper=arguments, flags=flags).test_qos()
+    # flags = dict(energy=True, latency=True, memory=True, grid_search=False)
+    # arguments = dict(optimizer='sgd', loss='sparse_categorical_crossentropy', batch=32, epochs=100, metric='accuracy',
+    #                  threshold=0.8, max_neurons_width=[500, 200, 100], max_neurons_depth=100, max_layers=8, grid_levels=4)
+    # ExperimentSKIQOS(dataset_name='breast', injector='kins', hyper=arguments, flags=flags).test_qos()
+    data = pd.read_csv(DATA_PATH / 'breast-cancer-data.csv')
+    formulae = TuProlog.from_file(KNOWLEDGE_PATH / 'breast-cancer.pl').formulae
+    model = create_standard_fully_connected_nn(data.shape[1]-1, 2, 3, 1000, 'relu')
+    model.compile('adam', loss='categorical_crossentropy', metrics='accuracy')
+    injector = Injector.kbann(model, {k: v for k, v in zip(data.columns[:-1], list(range(len(data.columns[:-1]))))})
+    new_model: Model = injector.inject(formulae)
+    new_model.compile('adam', loss='sparse_categorical_crossentropy', metrics='accuracy')
+    new_model.fit(data.iloc[:, :-1], data.iloc[:, -1:], epochs=100, batch_size=32, verbose=1)

@@ -101,7 +101,7 @@ setup(
     install_requires=[
         'psyki>=0.2.15.dev2',
         'psyke>=0.3.3.dev13',
-        'tensorflow>=2.11.0',
+        'tensorflow>=2.7.0',
         'numpy>=1.22.3',
         'scikit-learn>=1.0.2',
         'pandas>=1.4.2',
