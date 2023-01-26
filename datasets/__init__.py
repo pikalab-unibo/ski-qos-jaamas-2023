@@ -3,10 +3,13 @@ from pathlib import Path
 from typing import Iterable, Callable
 import numpy as np
 import pandas as pd
+from psyki.logic.prolog import TuProlog
 from sklearn.model_selection import train_test_split
+
 
 PATH = Path(__file__).parents[0]
 UCI_URL: str = "https://archive.ics.uci.edu/ml/machine-learning-databases/"
+TEST_SIZE: float = 1/3
 
 
 class SpliceJunction(object):
@@ -96,7 +99,7 @@ def load_splice_junction_dataset(binary_features: bool = False, numeric_output: 
         df.columns = SpliceJunction.features + ['class']
 
     # Split the dataframe into train and test sets
-    train_df, test_df = train_test_split(df, test_size=0.2)
+    train_df, test_df = train_test_split(df, test_size=TEST_SIZE)
     return train_df, test_df
 
 
@@ -107,7 +110,7 @@ def load_breast_cancer_dataset(binary_features: bool = False, numeric_output: bo
     df.diagnosis = df.diagnosis.apply(lambda x: 0 if x == 2 else 1) if numeric_output else df.diagnosis
     df.BareNuclei = df.BareNuclei.apply(lambda x: 0 if x == '?' else x).astype(int)
     # Split the dataframe into train and test sets
-    train_df, test_df = train_test_split(df, test_size=0.2)
+    train_df, test_df = train_test_split(df, test_size=TEST_SIZE)
 
     return train_df, test_df
 

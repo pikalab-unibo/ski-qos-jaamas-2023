@@ -1,7 +1,11 @@
+import itertools
+from typing import Callable
 import pandas as pd
 import numpy as np
-from psyki.qos import QoS
+from tensorflow.keras.wrappers.scikit_learn import KerasClassifier
+from psyki.logic import Formula
 from psyki.ski import Injector
+from sklearn.model_selection import GridSearchCV
 from tensorflow.keras import Model, Input
 from tensorflow.keras.layers import Dense
 from datasets import SpliceJunction, BreastCancer, CensusIncome
@@ -10,120 +14,124 @@ from knowledge import PATH as KNOWLEDGE_PATH
 from datasets import PATH as DATA_PATH
 
 
-class ExperimentSKIQOS:
-    def __init__(self, dataset_name: str, injector: str, hyper: dict, flags: dict):
-        self.dataset_name = dataset_name
-        self.injector = injector
-        self.hyper = hyper
-        self.flags = flags
+"""
+1 - grid search to find a "good" classic NN (B) for the dataset, with a threshold (t, t could be computed as the accuracy of a DT)
+2 - injectors
+  2.1 - kbann, only gamma should be fine-tuned (optionally consider also the constraint variant)
+  2.2 - kins, grid search with B as upperbound
+  2.3 - kill, we could keep B (or apply grid search), keep attention to batch size and the accuracy of the KB
+3 - for each run we SAVE the results in a csv
+4 - post analysis of the results
 
-        if self.dataset_name == 'splice':
-            self.dataset, self.mapping, self.class_map, self.knowledge = self.splice_data()
+Grid search
+Epochs = 100
+Batch size = [[64], 32]
+Early stop = t is reached and no accuracy growth in [[5], 10] epochs
+Input layer    -> the number of neurons is equal to the number of features (9, 240, 85)
+Hidden layer 1 -> grid search [10, 50, 100, 500, 1000]
+Hidden layer 2 -> grid search [10, 50, 100, 500, 1000]
+Hidden layer 3 -> grid search [10, 50, 100, 500, 1000]
+Output layer   -> number of classes (2, 3, 2)
 
-        if self.dataset_name == 'census':
-            self.dataset, self.mapping, self.class_map, self.knowledge = self.census_data()
+Dataset
+Breast Cancer: 699 -> 466 | 233
+Splice Junction: 3190 -> 2127 | 163
+Census Income: 32561 | 16281
+"""
 
-        if self.dataset_name == 'breast':
-            self.dataset, self.mapping, self.class_map, self.knowledge = self.breast_data()
 
-        self.model = create_standard_fully_connected_nn(input_size=self.dataset['input_size'],
-                                                        output_size=self.dataset['output_size'],
-                                                        layers=4,
-                                                        neurons=250,
-                                                        activation='relu')
+# TODO: to be split into 2 different searches
+def grid_search(dataset_name: str, injector: Injector, training_params: dict, knowledge: list[Formula]):
 
-        if self.injector == 'kins':
-            self.injector_arguments = {'feature_mapping': self.mapping,
-                                       'injection_layer': len(self.model.layers) - 2}
-        if self.injector == 'kill':
-            self.injector_arguments = {'feature_mapping': self.mapping,
-                                       'class_mapping': self.class_map}
-        if self.injector == 'kbann':
-            self.injector_arguments = {'feature_mapping': self.mapping}
+    def create_nn(input_layer: int, output_layer: int, hidden_layers: int, neurons: list[int]) -> Model:
+        input_layer = Input((input_layer,))
+        x = input_layer
+        for h in range(hidden_layers):
+            x = Dense(neurons[h], activation="relu")(x)
+        x = Dense(output_layer, activation="softmax")(x)
+        model = Model(input_layer, x)
+        model.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics="accuracy")
+        return model
 
-    def test_qos(self):
-        metric_arguments = dict(model=self.model,
-                                dataset=self.dataset,
-                                injection=self.injector,
-                                injector_arguments=self.injector_arguments,
-                                formulae=self.knowledge,
-                                optim=self.hyper['optimizer'],
-                                loss=self.hyper['loss'],
-                                batch=self.hyper['batch'],
-                                epochs=self.hyper['epochs'],
-                                metrics=self.hyper['metric'],
-                                max_neurons_width=self.hyper['max_neurons_width'],
-                                max_neurons_depth=self.hyper['max_neurons_depth'],
-                                max_layers=self.hyper['max_layers'],
-                                grid_levels=self.hyper['grid_levels'],
-                                threshold=self.hyper['threshold'],
-                                alpha=0.8)
+    def create_educated_nn(input_layer: int, output_layer: int, hidden_layers: int, neurons: list[int], injector: Injector, formulae: list[Formula]) -> Model:
+        model = create_nn(input_layer, output_layer, hidden_layers, neurons)
+        injector._predictor = model.copy()
+        educated_model = injector.inject(formulae)
+        educated_model.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics="accuracy")
+        return educated_model
 
-        qos = QoS(metric_arguments=metric_arguments, flags=self.flags)
-        qos.compute(verbose=True)
-
-    @staticmethod
     def split_dataset(train, test):
         train_x, train_y = train.iloc[:, :-1], train.iloc[:, -1:]
         test_x, test_y = test.iloc[:, :-1], test.iloc[:, -1:]
-        dataset_split = dict(train_x=train_x,
-                             train_y=train_y,
-                             test_x=test_x,
-                             test_y=test_y,
+        dataset_split = dict(train_x=train_x, train_y=train_y, test_x=test_x, test_y=test_y,
                              input_size=train_x.shape[-1],
                              output_size=len(np.unique(train_y)))
         return dataset_split
 
-    @staticmethod
     def splice_data():
-
         train = pd.read_csv(DATA_PATH / "splice-junction-data.csv")
         test = pd.read_csv(DATA_PATH / "splice-junction-data-test.csv")
         feature_mapping = {k: v for k, v in zip(train.columns, list(range(len(train.columns))))}
         knowledge = TuProlog.from_file(str(KNOWLEDGE_PATH / "splice-junction.pl")).formulae
-        dataset_split = ExperimentSKIQOS.split_dataset(train, test)
+        dataset_split = split_dataset(train, test)
         return dataset_split, feature_mapping, SpliceJunction.class_mapping_short, knowledge
 
-    @staticmethod
     def census_data():
-
         train = pd.read_csv(DATA_PATH / "census-income-data.csv")
         test = pd.read_csv(DATA_PATH / "census-income-data-test.csv")
         feature_mapping = {k: v for k, v in zip(train.columns, list(range(len(train.columns))))}
         knowledge = TuProlog.from_file(str(KNOWLEDGE_PATH / "census-income.pl")).formulae
-        dataset_split = ExperimentSKIQOS.split_dataset(train, test)
+        dataset_split = split_dataset(train, test)
         return dataset_split, feature_mapping, CensusIncome.class_mapping, knowledge
 
-    @staticmethod
     def breast_data():
-
         train = pd.read_csv(DATA_PATH / "breast-cancer-data.csv")
         test = pd.read_csv(DATA_PATH / "breast-cancer-data-test.csv")
         feature_mapping = {k: v for k, v in zip(train.columns, list(range(len(train.columns))))}
         knowledge = TuProlog.from_file(str(KNOWLEDGE_PATH / "breast-cancer.pl")).formulae
-        dataset_split = ExperimentSKIQOS.split_dataset(train, test)
+        dataset_split = split_dataset(train, test)
         return dataset_split, feature_mapping, BreastCancer.class_mapping_short, knowledge
 
+    if dataset_name == 'splice':
+        y = splice_data()
+    elif dataset_name == 'census':
+        y = census_data()
+    else:  # dataset_name == 'breast':
+        y = breast_data()
+    dataset, mapping, class_map, knowledge = y
 
-def create_standard_fully_connected_nn(input_size: int, output_size, layers: int, neurons: int, activation: str) -> Model:
-    inputs = Input((input_size,))
-    x = Dense(neurons, activation=activation)(inputs)
-    for _ in range(1, layers):
-        x = Dense(neurons, activation=activation)(x)
-    x = Dense(output_size, activation='softmax' if output_size > 1 else 'sigmoid')(x)
-    return Model(inputs, x)
+    # 1° GRID SEARCH
+    neurons_per_layer = [10, 50, 100]
+    filter_neurons: Callable = lambda m: list(v for v in neurons_per_layer if v <= m)
+    predictor = KerasClassifier(create_nn)
+    gs_params = {
+        'neurons': list(list(x) for x in itertools.product(neurons_per_layer, neurons_per_layer)),
+        'hidden_layers': [1, 2],
+        'input_layer': [240],
+        'output_layer': [3]
+    }
+    gs = GridSearchCV(predictor, gs_params, cv=2)
+    gs.fit(dataset['train_x'], dataset['train_y'], epochs=100, batch_size=64)
+    best_params = gs.best_params_
+    # TODO: save best parameters into a file
+
+    # 2° GRID SEARCH (depending on the injector)
+    predictor = KerasClassifier(create_educated_nn)
+    gs_params = {
+        'neurons': list(list(x) for x in itertools.product(filter_neurons(best_params['neurons'][0]), filter_neurons(best_params['neurons'][1]))),
+        'hidden_layers': [range(best_params['hidden_layers'])],
+        'input_layer': [240],
+        'output_layer': [3]
+    }
+    gs = GridSearchCV(predictor, gs_params, cv=2)
+    gs.fit(dataset['train_x'], dataset['train_y'], epochs=100, batch_size=64)
+    best_params = gs.best_params_
+    # TODO: save best parameters into a file
 
 
 if __name__ == '__main__':
-    # flags = dict(energy=True, latency=True, memory=True, grid_search=False)
-    # arguments = dict(optimizer='sgd', loss='sparse_categorical_crossentropy', batch=32, epochs=100, metric='accuracy',
-    #                  threshold=0.8, max_neurons_width=[500, 200, 100], max_neurons_depth=100, max_layers=8, grid_levels=4)
-    # ExperimentSKIQOS(dataset_name='breast', injector='kins', hyper=arguments, flags=flags).test_qos()
-    data = pd.read_csv(DATA_PATH / 'breast-cancer-data.csv')
-    formulae = TuProlog.from_file(KNOWLEDGE_PATH / 'breast-cancer.pl').formulae
-    model = create_standard_fully_connected_nn(data.shape[1]-1, 2, 3, 1000, 'relu')
-    model.compile('adam', loss='categorical_crossentropy', metrics='accuracy')
-    injector = Injector.kbann(model, {k: v for k, v in zip(data.columns[:-1], list(range(len(data.columns[:-1]))))})
-    new_model: Model = injector.inject(formulae)
-    new_model.compile('adam', loss='sparse_categorical_crossentropy', metrics='accuracy')
-    new_model.fit(data.iloc[:, :-1], data.iloc[:, -1:], epochs=100, batch_size=32, verbose=1)
+    dataset = 'splice'
+    training_params = None
+    formulae = TuProlog.from_file(KNOWLEDGE_PATH / 'splice-junction.pl').formulae
+    injector = None
+    grid_search(dataset, injector, training_params, formulae)
