@@ -51,8 +51,8 @@ class GenerateMissingKnowledge(distutils.cmd.Command):
         generate_missing_knowledge()
 
 
-class RunExperiments(distutils.cmd.Command):
-    description = 'Run experiments'
+class FindBestConfiguration(distutils.cmd.Command):
+    description = 'Search for best predictor\'s parameters w.r.t. accuracy'
     user_options = []
 
     def initialize_options(self) -> None:
@@ -62,6 +62,31 @@ class RunExperiments(distutils.cmd.Command):
         pass
 
     def run(self) -> None:
+        pass
+        # for d in dataset:
+        #   grid_search()       uneducated
+
+        # for d in dataset:
+        #   for i in injectors:
+        #       grid_search()   educated
+
+
+class RunExperiments(distutils.cmd.Command):
+    description = 'Run experiments, a.k.a. compute metrics'
+    user_options = []
+
+    def initialize_options(self) -> None:
+        pass
+
+    def finalize_options(self) -> None:
+        pass
+
+    def run(self) -> None:
+        # for d in dataset:
+        #   for i in injectors:
+        #       ...
+        #       compute_metrics(uneducated, educated, params)
+
         census_income_knowledge = TuProlog.from_file(str(KNOWLEDGE_PATH / "census-income.pl")).formulae
         splice_junction_knowledge = TuProlog.from_file(str(KNOWLEDGE_PATH / "splice-junction.pl")).formulae
         breast_cancer_knowledge = TuProlog.from_file(str(KNOWLEDGE_PATH / "breast-cancer.pl")).formulae
@@ -111,5 +136,6 @@ setup(
         'load_datasets': LoadDatasets,
         'generate_missing_knowledge': GenerateMissingKnowledge,
         'run_experiments': RunExperiments,
+        'grid_search': FindBestConfiguration,
     },
 )

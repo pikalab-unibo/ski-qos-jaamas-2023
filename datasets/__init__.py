@@ -6,10 +6,9 @@ import pandas as pd
 from psyki.logic.prolog import TuProlog
 from sklearn.model_selection import train_test_split
 
-
 PATH = Path(__file__).parents[0]
 UCI_URL: str = "https://archive.ics.uci.edu/ml/machine-learning-databases/"
-TEST_SIZE: float = 1/3
+TEST_SIZE: float = 1 / 3
 
 
 class SpliceJunction(object):
@@ -123,7 +122,8 @@ def load_census_income_dataset(binary_features: bool = False, numeric_output: bo
     df = pd.concat((df, df_test), axis=0)
     df.columns = CensusIncome.features
     df.drop(["Fnlwgt", "Education", "Ethnicity"], axis=1, inplace=True)
-    df.income = df.income.apply(lambda x: 0 if x.replace(" ", "") in ('<=50K', "<=50K.") else 1) if numeric_output else df.income
+    df.income = df.income.apply(
+        lambda x: 0 if x.replace(" ", "") in ('<=50K', "<=50K.") else 1) if numeric_output else df.income
 
     def binarize(df: pd.DataFrame) -> pd.DataFrame:
         data = df.iloc[:, :-1]
@@ -134,14 +134,16 @@ def load_census_income_dataset(binary_features: bool = False, numeric_output: bo
         data['CapitalGain'] = data['CapitalGain'].apply(lambda x: 0 if x == 0 else 1)
         data['CapitalLoss'] = data['CapitalLoss'].apply(lambda x: 0 if x == 0 else 1)
         data['Sex'] = data['Sex'].apply(lambda x: 0 if x == 'Male' else 1)
-        one_hot = pd.get_dummies(df[CensusIncome.one_hot_features].apply(lambda x: x.str.upper()), columns=CensusIncome.one_hot_features)
+        one_hot = pd.get_dummies(df[CensusIncome.one_hot_features].apply(lambda x: x.str.upper()),
+                                 columns=CensusIncome.one_hot_features)
         callback: Callable = lambda pat: pat.group(1) + "_" + pat.group(2).lower()
         one_hot.columns = [re.sub(r"([A-Z][a-zA-Z]*)[_][ ](.*)", callback, f) for f in one_hot.columns]
         # Special characters removed
         one_hot.columns = [f.replace('?', 'unknown') for f in one_hot.columns]
         one_hot.columns = [f.replace('-', '_') for f in one_hot.columns]
         one_hot.columns = [f.replace('&', '_') for f in one_hot.columns]
-        one_hot.columns = [f.replace('NativeCountry_outlying_us(guam_usvi_etc)', 'NativeCountry_outlying_us') for f in one_hot.columns]
+        one_hot.columns = [f.replace('NativeCountry_outlying_us(guam_usvi_etc)', 'NativeCountry_outlying_us') for f in
+                           one_hot.columns]
         data = pd.concat([data, one_hot, df.income], axis=1)
         return data
 
