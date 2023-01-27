@@ -3,15 +3,17 @@ from pathlib import Path
 from typing import Iterable, Callable
 import numpy as np
 import pandas as pd
-from psyki.logic.prolog import TuProlog
 from sklearn.model_selection import train_test_split
 
 PATH = Path(__file__).parents[0]
 UCI_URL: str = "https://archive.ics.uci.edu/ml/machine-learning-databases/"
 TEST_SIZE: float = 1 / 3
+SEED: int = 0
 
 
 class SpliceJunction(object):
+    name: str = 'splice-junction'
+    knowledge_file_name: str = 'splice-junction.pl'
     data_url: str = UCI_URL + "molecular-biology/splice-junction-gene-sequences/splice.data"
     file_name: str = PATH / "splice-junction-data.csv"
     file_name_test: str = PATH / "splice-junction-data-test.csv"
@@ -27,6 +29,8 @@ class SpliceJunction(object):
 
 
 class BreastCancer(object):
+    name: str = 'breast-cancer'
+    knowledge_file_name: str = 'breast-cancer.pl'
     data_url: str = UCI_URL + "breast-cancer-wisconsin/breast-cancer-wisconsin.data"
     file_name: str = PATH / "breast-cancer-data.csv"
     file_name_test: str = PATH / "breast-cancer-data-test.csv"
@@ -38,6 +42,8 @@ class BreastCancer(object):
 
 
 class CensusIncome(object):
+    name: str = 'census-income'
+    knowledge_file_name: str = 'census-income.pl'
     data_url: str = UCI_URL + "adult/adult.data"
     data_test_url: str = UCI_URL + "adult/adult.test"
     file_name: str = PATH / "census-income-data.csv"
@@ -98,7 +104,7 @@ def load_splice_junction_dataset(binary_features: bool = False, numeric_output: 
         df.columns = SpliceJunction.features + ['class']
 
     # Split the dataframe into train and test sets
-    train_df, test_df = train_test_split(df, test_size=TEST_SIZE)
+    train_df, test_df = train_test_split(df, test_size=TEST_SIZE, random_state=SEED)
     return train_df, test_df
 
 
@@ -109,7 +115,7 @@ def load_breast_cancer_dataset(binary_features: bool = False, numeric_output: bo
     df.diagnosis = df.diagnosis.apply(lambda x: 0 if x == 2 else 1) if numeric_output else df.diagnosis
     df.BareNuclei = df.BareNuclei.apply(lambda x: 0 if x == '?' else x).astype(int)
     # Split the dataframe into train and test sets
-    train_df, test_df = train_test_split(df, test_size=TEST_SIZE)
+    train_df, test_df = train_test_split(df, test_size=TEST_SIZE, random_state=SEED)
 
     return train_df, test_df
 

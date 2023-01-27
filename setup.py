@@ -1,9 +1,14 @@
 import distutils.cmd
+import itertools
+import pandas as pd
 from psyki.logic.prolog import TuProlog
+from psyki.ski import Injector
 from setuptools import setup, find_packages
 from datasets import load_splice_junction_dataset, load_breast_cancer_dataset, load_census_income_dataset, \
     SpliceJunction, BreastCancer, CensusIncome
+from experiment import grid_search, create_nn, create_educated_nn, NEURONS_PER_LAYERS, LAYERS, filter_neurons
 from knowledge import generate_missing_knowledge, PATH as KNOWLEDGE_PATH
+from results import PATH as RESULT_PATH
 
 
 class LoadDatasets(distutils.cmd.Command):
@@ -62,13 +67,30 @@ class FindBestConfiguration(distutils.cmd.Command):
         pass
 
     def run(self) -> None:
-        pass
-        # for d in dataset:
-        #   grid_search()       uneducated
-
-        # for d in dataset:
-        #   for i in injectors:
-        #       grid_search()   educated
+        datasets = [BreastCancer, SpliceJunction, CensusIncome]
+        injectors = [Injector.kins, Injector.kill]
+        injector_names = ['kins', 'kill']
+        for dataset in datasets:
+            params = {
+                'neurons': list(list(x) for x in itertools.product(NEURONS_PER_LAYERS, repeat=len(LAYERS))),
+                'hidden_layers': LAYERS
+            }
+            print("\n\nGrid search for predictors for the " + dataset.name + " dataset")
+            best_params = {'uneducated': grid_search(dataset.name, params, create_nn)}
+            new_neurons = [filter_neurons(x) for x in best_params['uneducated']['neurons']]
+            max_layers = best_params['uneducated']['hidden_layers']
+            new_params = {
+                'neurons': list(list(x) for x in itertools.product(*new_neurons)),
+                'hidden_layers': list(range(1, max_layers+1))
+            }
+            data = {'uneducated': best_params['uneducated']['neurons']}
+            for injector, injector_name in zip(injectors, injector_names):
+                print("- " + injector_name)
+                new_params['injector'] = [injector]
+                new_params['formulae'] = [TuProlog.from_file(KNOWLEDGE_PATH / dataset.knowledge_file_name).formulae]
+                best_params[injector_name] = grid_search(dataset.name, new_params, create_educated_nn)
+                data[injector_name] = best_params[injector_name]['neurons']
+            pd.DataFrame(data).to_csv(RESULT_PATH / (dataset.name + '.csv'))
 
 
 class RunExperiments(distutils.cmd.Command):

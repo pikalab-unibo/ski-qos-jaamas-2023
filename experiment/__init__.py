@@ -13,7 +13,6 @@ from sklearn.model_selection import GridSearchCV
 from tensorflow.keras import Model, Input
 from tensorflow.keras.layers import Dense
 from tensorflow.python.framework.random_seed import set_seed
-
 from datasets import SpliceJunction, BreastCancer, CensusIncome
 from psyki.logic.prolog import TuProlog
 from knowledge import PATH as KNOWLEDGE_PATH
@@ -51,7 +50,7 @@ BATCH_SIZE = 32
 EPOCHS = 100
 VERBOSE = 0
 SEED = 0
-NEURONS_PER_LAYERS = [10, 50, 100]
+NEURONS_PER_LAYERS = [10, 50]
 LAYERS = [1, 2]
 
 
@@ -115,27 +114,27 @@ def get_dataset_and_knowledge(dataset_name: str):
         dataset_split = split_dataset(train, test)
         return dataset_split, feature_mapping, BreastCancer.class_mapping_short, knowledge
 
-    if dataset_name == 'splice':
+    if dataset_name == SpliceJunction.name:
         return splice_data_and_knowledge()
-    elif dataset_name == 'census':
+    elif dataset_name == CensusIncome.name:
         return census_data_and_knowledge()
     else:  # dataset_name == 'breast':
         return breast_data_and_knowledge()
 
 
-def grid_search(dataset_name: str, grid_search_params: dict, creator: Callable, result_file_name: str):
+def grid_search(dataset_name: str, grid_search_params: dict, creator: Callable,):
     set_seed(SEED)
     dataset, mapping, class_map, knowledge = get_dataset_and_knowledge(dataset_name)
+    grid_search_params['input_layer'] = [len(dataset['train_x'].columns)]
+    grid_search_params['output_layer'] = [len(np.unique(dataset['train_y']))]
     if 'injector' in grid_search_params.keys():
         grid_search_params['injector_params'] = [{
             'feature_mapping': {k: v for v, k in enumerate(dataset['train_x'].columns)}
         }]
-    predictor = KerasClassifier(creator, **grid_search_params)
-    gs = GridSearchCV(predictor, grid_search_params, cv=2, n_jobs=1)
+    predictor = KerasClassifier(creator, **grid_search_params, random_state=SEED)
+    gs = GridSearchCV(predictor, grid_search_params, cv=2, n_jobs=1,)
     gs.fit(dataset['train_x'], dataset['train_y'], epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=VERBOSE)
-    best_params = gs.best_params_.copy()
-    pd.DataFrame(best_params).to_csv(RESULT_PATH / result_file_name)
-    return best_params
+    return gs.best_params_
 
 
 def compute_metrics(predictor1: Model, predictor2: Model, training_params: dict, result_file_name: str):
@@ -155,7 +154,7 @@ def compute_metrics(predictor1: Model, predictor2: Model, training_params: dict,
     # Latency
     latency = Latency.compute_during_inference(predictor1, predictor2, training_params)
     file_name = result_file_name[:-4] + '-inference' + result_file_name[-4:]
-    pd.DataFrame({'energy': energy, 'memory': memory, 'latency': latency}).to_csv(RESULT_PATH / result_file_name)
+    pd.DataFrame({'energy': energy, 'memory': memory, 'latency': latency}).to_csv(RESULT_PATH / file_name)
 
 
 if __name__ == '__main__':

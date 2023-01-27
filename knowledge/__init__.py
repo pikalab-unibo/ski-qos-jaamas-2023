@@ -5,12 +5,9 @@ from psyke.utils.logic import pretty_theory
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
 from psyke import Extractor
-from datasets import PATH as DATA_PATH
-
+from datasets import PATH as DATA_PATH, CensusIncome, BreastCancer
 
 PATH = Path(__file__).parents[0]
-
-
 MAX_FEATURES_IN_RULE: int = 20
 MAX_RULES: int = 20
 
@@ -36,5 +33,5 @@ def generate_missing_knowledge():
         with open(PATH / (data_name + ".pl"), "w") as text_file:
             text_file.write(knowledge)
 
-    generate_knowledge('census-income')
-    generate_knowledge('breast-cancer')
+    generate_knowledge(CensusIncome.name)
+    generate_knowledge(BreastCancer.name)
