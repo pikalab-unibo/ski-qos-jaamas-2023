@@ -8,17 +8,17 @@ from psyki.qos.energy import Energy
 from psyki.qos.latency import Latency
 from psyki.qos.memory import Memory
 from psyki.ski import Injector
-from psyki.ski.kill import LambdaLayer
 from scikeras.wrappers import KerasClassifier
 from sklearn.model_selection import GridSearchCV
 from tensorflow.keras import Model, Input
 from tensorflow.keras.layers import Dense
 from tensorflow.python.framework.random_seed import set_seed
+from tensorflow.python.keras.callbacks import EarlyStopping
+
 from datasets import SpliceJunction, BreastCancer, CensusIncome
 from psyki.logic.prolog import TuProlog
 from knowledge import PATH as KNOWLEDGE_PATH
 from datasets import PATH as DATA_PATH
-from results import PATH as RESULT_PATH
 
 """
 1 - grid search to find a "good" classic NN (B) for the dataset, with a threshold (t, t could be computed as the accuracy of a DT)
@@ -49,8 +49,11 @@ BATCH_SIZE = 32
 EPOCHS = 100
 VERBOSE = 0
 SEED = 0
-NEURONS_PER_LAYERS = [10, 50]
-LAYERS = [1, 2]
+LOSS = "sparse_categorical_crossentropy"
+NEURONS_PER_LAYERS = [10, 50, 100]
+LAYERS = [1, 2, 3]
+ACCEPTABLE_ACCURACY_DROP = 0.95
+ACCEPTABLE_ACCURACY = 0.8
 
 sys.setrecursionlimit(2000)
 
@@ -66,7 +69,7 @@ def create_nn(input_layer: int, output_layer: int, hidden_layers: int, neurons: 
         x = Dense(neurons[h], activation="relu")(x)
     x = Dense(output_layer, activation="softmax")(x)
     model = Model(input_layer, x)
-    model.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics="accuracy")
+    model.compile(optimizer="adam", loss=LOSS, metrics="accuracy")
     return model
 
 
@@ -75,7 +78,7 @@ def create_educated_nn(input_layer: int, output_layer: int, hidden_layers: int, 
     model = create_nn(input_layer, output_layer, hidden_layers, neurons)
     injector = injector(model, **injector_params)
     educated_model = injector.inject(formulae)
-    educated_model.compile(optimizer="adam", loss="sparse_categorical_crossentropy", metrics="accuracy")
+    educated_model.compile(optimizer="adam", loss=LOSS, metrics="accuracy")
     return educated_model
 
 
@@ -141,52 +144,42 @@ def grid_search(dataset_name: str, grid_search_params: dict, creator: Callable):
             grid_search_params['injector_params'] = [{
                 'feature_mapping': {k: v for v, k in enumerate(dataset['train_x'].columns)}
             }]
+    if 'accuracy' in grid_search_params.keys():
+        threshold = grid_search_params['accuracy'] * ACCEPTABLE_ACCURACY_DROP
+        callback = EarlyStopping(monitor="accuracy", patience=5, restore_best_weights=True, baseline=threshold)
+        grid_search_params.pop('accuracy')
+    else:
+        callback = EarlyStopping(monitor="accuracy", patience=5, restore_best_weights=True, baseline=ACCEPTABLE_ACCURACY)
     predictor = KerasClassifier(creator, **grid_search_params, random_state=SEED)
     gs = GridSearchCV(predictor, grid_search_params, cv=2, n_jobs=1, )
-    gs.fit(dataset['train_x'], dataset['train_y'], epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=VERBOSE)
+    gs.fit(dataset['train_x'], dataset['train_y'], epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=VERBOSE, callbacks=[callback])
+    gs.best_params_['accuracy'] = gs.best_score_
     return gs.best_params_
 
 
-def compute_metrics(predictor1: Model, predictor2: Model, training_params: dict, result_file_name: str):
-    # Energy
-    energy = Energy.compute_during_training(predictor1, predictor2, training_params)
-    # Memory
-    memory = Memory.compute_during_training(predictor1, predictor2, training_params)
-    # Latency
-    latency = Latency.compute_during_training(predictor1, predictor2, training_params)
-    file_name = result_file_name[:-4] + '-train' + result_file_name[-4:]
-    pd.DataFrame({'energy': energy, 'memory': memory, 'latency': latency}).to_csv(RESULT_PATH / file_name)
-
-    # Energy
-    energy = Energy.compute_during_inference(predictor1, predictor2, training_params)
-    # Memory
-    memory = Memory.compute_during_inference(predictor1, predictor2, training_params)
-    # Latency
-    latency = Latency.compute_during_inference(predictor1, predictor2, training_params)
-    file_name = result_file_name[:-4] + '-inference' + result_file_name[-4:]
-    pd.DataFrame({'energy': energy, 'memory': memory, 'latency': latency}).to_csv(RESULT_PATH / file_name)
-
-
-if __name__ == '__main__':
-    # First grid search
-    dataset = 'splice'
-    grid_search_params = {
-        'neurons': list(list(x) for x in itertools.product(NEURONS_PER_LAYERS, NEURONS_PER_LAYERS)),
-        'hidden_layers': [1, 2],
-        'input_layer': [240],
-        'output_layer': [3]
+def _compute_metrics(predictor1: Model, predictor2: Model, dataset: pd.DataFrame, training: bool):
+    training_params = {
+        'epochs': 1,
+        'batch_size': BATCH_SIZE,
+        'verbose': VERBOSE,
+        'x': dataset.iloc[:, :-1],
+        'y': dataset.iloc[:, -1:],
+        'callbacks': [EarlyStopping(monitor="accuracy", patience=5, restore_best_weights=True, baseline=ACCEPTABLE_ACCURACY)]
     }
-    best_params = grid_search(dataset, grid_search_params, create_nn)
-    # Second grid search
-    formulae = TuProlog.from_file(KNOWLEDGE_PATH / 'splice-junction.pl').formulae
-    grid_search_params = {
-        'injector': [Injector.kins],
-        'formulae': [formulae],
-        'neurons': list(list(x) for x in itertools.product(filter_neurons(best_params['neurons'][0]),
-                                                           filter_neurons(best_params['neurons'][1]))),
-        'hidden_layers': list(range(best_params['hidden_layers'])),
-        'input_layer': [240],
-        'output_layer': [3]
-    }
-    print("\n\n\n\n")
-    best_params = grid_search(dataset, grid_search_params, create_educated_nn)
+    if training:
+        energy = Energy.compute_during_training(predictor1, predictor2, training_params)
+        memory = Memory.compute_during_training(predictor1, predictor2, training_params)
+        latency = Latency.compute_during_training(predictor1, predictor2, training_params)
+    else:
+        energy = Energy.compute_during_inference(predictor1, predictor2, training_params)
+        memory = Memory.compute_during_inference(predictor1, predictor2, training_params)
+        latency = Latency.compute_during_inference(predictor1, predictor2, training_params)
+    return {'energy': energy, 'memory': memory, 'latency': latency}
+
+
+def compute_metrics_training(predictor1: Model, predictor2: Model, dataset: pd.DataFrame):
+    return _compute_metrics(predictor1, predictor2, dataset, True)
+
+
+def compute_metrics_inference(predictor1: Model, predictor2: Model, dataset: pd.DataFrame):
+    return _compute_metrics(predictor1, predictor2, dataset, False)

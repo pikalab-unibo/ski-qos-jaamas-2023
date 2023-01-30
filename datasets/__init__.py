@@ -53,6 +53,7 @@ class CensusIncome(object):
                            "HoursPerWeek", "NativeCountry", "income"]
     one_hot_features: list[str] = ["WorkClass", "MaritalStatus", "Occupation", "Relationship", "NativeCountry"]
     class_mapping: dict[str, int] = {'0.0': 0, '1.0': 1}
+    class_mapping_short: dict[str, int] = {'0.0': 0, '1.0': 1}
 
 
 def load_splice_junction_dataset(binary_features: bool = False, numeric_output: bool = False) -> tuple[
