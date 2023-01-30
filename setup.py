@@ -85,7 +85,7 @@ class FindBestConfiguration(distutils.cmd.Command):
             }
             data = {'uneducated': best_params['uneducated']['neurons']}
             for injector, injector_name in zip(injectors, injector_names):
-                print("- " + injector_name)
+                print("\n" + injector_name)
                 new_params['injector'] = [injector]
                 new_params['formulae'] = [TuProlog.from_file(KNOWLEDGE_PATH / dataset.knowledge_file_name).formulae]
                 best_params[injector_name] = grid_search(dataset.name, new_params, create_educated_nn)

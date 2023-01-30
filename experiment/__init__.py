@@ -8,6 +8,7 @@ from psyki.qos.energy import Energy
 from psyki.qos.latency import Latency
 from psyki.qos.memory import Memory
 from psyki.ski import Injector
+from psyki.ski.kill import LambdaLayer
 from scikeras.wrappers import KerasClassifier
 from sklearn.model_selection import GridSearchCV
 from tensorflow.keras import Model, Input
@@ -18,7 +19,6 @@ from psyki.logic.prolog import TuProlog
 from knowledge import PATH as KNOWLEDGE_PATH
 from datasets import PATH as DATA_PATH
 from results import PATH as RESULT_PATH
-
 
 """
 1 - grid search to find a "good" classic NN (B) for the dataset, with a threshold (t, t could be computed as the accuracy of a DT)
@@ -45,14 +45,12 @@ Splice Junction: 3190 -> 2127 | 163
 Census Income: 32561 | 16281
 """
 
-
 BATCH_SIZE = 32
 EPOCHS = 100
 VERBOSE = 0
 SEED = 0
 NEURONS_PER_LAYERS = [10, 50]
 LAYERS = [1, 2]
-
 
 sys.setrecursionlimit(2000)
 
@@ -122,17 +120,29 @@ def get_dataset_and_knowledge(dataset_name: str):
         return breast_data_and_knowledge()
 
 
-def grid_search(dataset_name: str, grid_search_params: dict, creator: Callable,):
+def grid_search(dataset_name: str, grid_search_params: dict, creator: Callable):
     set_seed(SEED)
     dataset, mapping, class_map, knowledge = get_dataset_and_knowledge(dataset_name)
     grid_search_params['input_layer'] = [len(dataset['train_x'].columns)]
     grid_search_params['output_layer'] = [len(np.unique(dataset['train_y']))]
     if 'injector' in grid_search_params.keys():
-        grid_search_params['injector_params'] = [{
-            'feature_mapping': {k: v for v, k in enumerate(dataset['train_x'].columns)}
-        }]
+        if grid_search_params['injector'][0] == Injector.kill:
+            if dataset_name == SpliceJunction.name:
+                class_mapping = SpliceJunction.class_mapping_short
+            elif dataset_name == CensusIncome.name:
+                class_mapping = CensusIncome.class_mapping
+            else:
+                class_mapping = BreastCancer.class_mapping_short
+            grid_search_params['injector_params'] = [{
+                'feature_mapping': {k: v for v, k in enumerate(dataset['train_x'].columns)},
+                'class_mapping': class_mapping
+            }]
+        else:
+            grid_search_params['injector_params'] = [{
+                'feature_mapping': {k: v for v, k in enumerate(dataset['train_x'].columns)}
+            }]
     predictor = KerasClassifier(creator, **grid_search_params, random_state=SEED)
-    gs = GridSearchCV(predictor, grid_search_params, cv=2, n_jobs=1,)
+    gs = GridSearchCV(predictor, grid_search_params, cv=2, n_jobs=1, )
     gs.fit(dataset['train_x'], dataset['train_y'], epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=VERBOSE)
     return gs.best_params_
 
@@ -166,7 +176,7 @@ if __name__ == '__main__':
         'input_layer': [240],
         'output_layer': [3]
     }
-    best_params = grid_search(dataset, grid_search_params, create_nn, 'uneducated-splice.csv')
+    best_params = grid_search(dataset, grid_search_params, create_nn)
     # Second grid search
     formulae = TuProlog.from_file(KNOWLEDGE_PATH / 'splice-junction.pl').formulae
     grid_search_params = {
@@ -179,4 +189,4 @@ if __name__ == '__main__':
         'output_layer': [3]
     }
     print("\n\n\n\n")
-    best_params = grid_search(dataset, grid_search_params, create_educated_nn, 'educated-splice-kins.csv')
+    best_params = grid_search(dataset, grid_search_params, create_educated_nn)
