@@ -4,6 +4,7 @@ from typing import Callable
 import pandas as pd
 import numpy as np
 from psyki.logic import Formula
+from psyki.qos.data import DataEfficiency
 from psyki.qos.energy import Energy
 from psyki.qos.latency import Latency
 from psyki.qos.memory import Memory
@@ -170,11 +171,13 @@ def _compute_metrics(predictor1: Model, predictor2: Model, dataset: pd.DataFrame
         energy = Energy.compute_during_training(predictor1, predictor2, training_params)
         memory = Memory.compute_during_training(predictor1, predictor2, training_params)
         latency = Latency.compute_during_training(predictor1, predictor2, training_params)
+        data_efficiency = DataEfficiency.compute_during_training(predictor1, predictor2, training_params)
     else:
         energy = Energy.compute_during_inference(predictor1, predictor2, training_params)
         memory = Memory.compute_during_inference(predictor1, predictor2, training_params)
         latency = Latency.compute_during_inference(predictor1, predictor2, training_params)
-    return {'energy': energy, 'memory': memory, 'latency': latency}
+        data_efficiency = DataEfficiency.compute_during_inference(predictor1, predictor2, training_params)
+    return {'energy': energy, 'memory': memory, 'latency': latency, 'data_efficiency': data_efficiency}
 
 
 def compute_metrics_training(predictor1: Model, predictor2: Model, dataset: pd.DataFrame):

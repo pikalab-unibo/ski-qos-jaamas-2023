@@ -7,7 +7,7 @@ from setuptools import setup, find_packages
 from datasets import load_splice_junction_dataset, load_breast_cancer_dataset, load_census_income_dataset, \
     SpliceJunction, BreastCancer, CensusIncome
 from experiment import grid_search, create_nn, create_educated_nn, NEURONS_PER_LAYERS, LAYERS, filter_neurons, \
-    compute_metrics_training
+    compute_metrics_training, compute_metrics_inference
 from knowledge import generate_missing_knowledge, PATH as KNOWLEDGE_PATH
 from results import PATH as RESULT_PATH
 
@@ -113,8 +113,8 @@ class RunExperiments(distutils.cmd.Command):
         injectors = [Injector.kins, Injector.kill, Injector.kbann]
         injector_names = ['kins', 'kill', 'kbann']
         for dataset in datasets:
-            results_training = pd.DataFrame(columns=['energy', 'memory', 'latency'])
-            results_inference = pd.DataFrame(columns=['energy', 'memory', 'latency'])
+            results_training = pd.DataFrame(columns=['energy', 'memory', 'latency', 'data efficiency'])
+            results_inference = pd.DataFrame(columns=['energy', 'memory', 'latency', 'data efficiency'])
             data = pd.read_csv(dataset.file_name)
             best_params = pd.read_csv(RESULT_PATH / (dataset.name + '.csv'), index_col=0)
             uneducated_neurons = eval(best_params.loc['uneducated']['neurons'])
@@ -139,7 +139,7 @@ class RunExperiments(distutils.cmd.Command):
                 if injector_name == 'kill':
                     educated = educated.remove_constraints()
                     educated.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-                results_inference.loc[injector_name] = compute_metrics_training(uneducated, educated, data)
+                results_inference.loc[injector_name] = compute_metrics_inference(uneducated, educated, data)
             results_training.to_csv(RESULT_PATH / (dataset.name + '_metrics_training.csv'))
             results_inference.to_csv(RESULT_PATH / (dataset.name + '_metrics_inference.csv'))
 
