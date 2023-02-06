@@ -181,6 +181,8 @@ class RunExperiments(distutils.cmd.Command):
                                 educated.compile(optimizer='adam', loss=LOSS, metrics=['accuracy'])
                             accuracies_educated.append(educated.evaluate(test_data.iloc[:, :-1], test_data.iloc[:, -1:])[1])
 
+                        accuracy_history = pd.DataFrame({'uneducated': accuracies_uneducated, 'educated': accuracies_educated})
+                        accuracy_history.to_csv(RESULT_PATH / (dataset.name + '_' + injector_name + '_accuracy.csv'))
                         params['train_x1'] = train_data.iloc[:, :-1]
                         params['train_y1'] = train_data.iloc[:, -1:]
                         params['train_x2'] = train_data.iloc[:, :-1]
