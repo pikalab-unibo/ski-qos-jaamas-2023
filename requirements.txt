@@ -4,5 +4,5 @@ setuptools~=66.1.1
 psyke~=0.3.3.dev36
 scikit-learn~=1.2.0
 psyki~=0.2.18.dev2
-tensorflow~=2.11.0
+tensorflow~=2.7.0
 scikeras~=0.10.0

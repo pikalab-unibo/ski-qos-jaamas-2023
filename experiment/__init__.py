@@ -35,9 +35,9 @@ Epochs = 100
 Batch size = [[64], 32]
 Early stop = t is reached and no accuracy growth in [[5], 10] epochs
 Input layer    -> the number of neurons is equal to the number of features (9, 240, 85)
-Hidden layer 1 -> grid search [10, 50, 100, 500, 1000]
-Hidden layer 2 -> grid search [10, 50, 100, 500, 1000]
-Hidden layer 3 -> grid search [10, 50, 100, 500, 1000]
+Hidden layer 1 -> grid search [10, 50, 100]
+Hidden layer 2 -> grid search [10, 50, 100]
+Hidden layer 3 -> grid search [10, 50, 100]
 Output layer   -> number of classes (2, 3, 2)
 
 Dataset
@@ -50,11 +50,13 @@ BATCH_SIZE = 32
 EPOCHS = 100
 VERBOSE = 0
 SEED = 0
+POPULATION_SIZE = 30
 LOSS = "sparse_categorical_crossentropy"
 NEURONS_PER_LAYERS = [10, 50, 100]
 LAYERS = [1, 2, 3]
 ACCEPTABLE_ACCURACY_DROP = 0.95
 ACCEPTABLE_ACCURACY = 0.8
+CALLBACK = EarlyStopping(monitor="accuracy", patience=5, restore_best_weights=True, baseline=ACCEPTABLE_ACCURACY)
 
 sys.setrecursionlimit(2000)
 
@@ -150,7 +152,7 @@ def grid_search(dataset_name: str, grid_search_params: dict, creator: Callable):
         callback = EarlyStopping(monitor="accuracy", patience=5, restore_best_weights=True, baseline=threshold)
         grid_search_params.pop('accuracy')
     else:
-        callback = EarlyStopping(monitor="accuracy", patience=5, restore_best_weights=True, baseline=ACCEPTABLE_ACCURACY)
+        callback = CALLBACK
     predictor = KerasClassifier(creator, **grid_search_params, random_state=SEED)
     gs = GridSearchCV(predictor, grid_search_params, cv=2, n_jobs=1, )
     gs.fit(dataset['train_x'], dataset['train_y'], epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=VERBOSE, callbacks=[callback])
@@ -158,31 +160,29 @@ def grid_search(dataset_name: str, grid_search_params: dict, creator: Callable):
     return gs.best_params_
 
 
-def _compute_metrics(predictor1: Model, predictor2: Model, dataset: pd.DataFrame, training: bool):
-    training_params = {
-        'epochs': 1,
-        'batch_size': BATCH_SIZE,
-        'verbose': VERBOSE,
-        'x': dataset.iloc[:, :-1],
-        'y': dataset.iloc[:, -1:],
-        'callbacks': [EarlyStopping(monitor="accuracy", patience=5, restore_best_weights=True, baseline=ACCEPTABLE_ACCURACY)]
-    }
-    if training:
-        energy = Energy.compute_during_training(predictor1, predictor2, training_params)
-        memory = Memory.compute_during_training(predictor1, predictor2, training_params)
-        latency = Latency.compute_during_training(predictor1, predictor2, training_params)
-        data_efficiency = DataEfficiency.compute_during_training(predictor1, predictor2, training_params)
+def compute_metrics_training(predictor1: Model, predictor2: Model, params: dict):
+    metric = params['metric']
+    params.pop('metric')
+    if metric == 'energy':
+        return Energy.compute_during_training(predictor1, predictor2, params)
+    elif metric == 'memory':
+        return Memory.compute_during_training(predictor1, predictor2, params)
+    elif metric == 'latency':
+        return Latency.compute_during_training(predictor1, predictor2, params)
+    elif metric == 'data efficiency':
+        return DataEfficiency.compute_during_training(predictor1, predictor2, params)
+
+
+def compute_metrics_inference(predictor1: Model, predictor2: Model, params: dict):
+    metric = params['metric']
+    params.pop('metric')
+    if metric == 'energy':
+        return Energy.compute_during_inference(predictor1, predictor2, params)
+    elif metric == 'memory':
+        return Memory.compute_during_inference(predictor1, predictor2, params)
+    elif metric == 'latency':
+        return Latency.compute_during_inference(predictor1, predictor2, params)
+    elif metric == 'data efficiency':
+        return DataEfficiency.compute_during_inference(predictor1, predictor2, params)
     else:
-        energy = Energy.compute_during_inference(predictor1, predictor2, training_params)
-        memory = Memory.compute_during_inference(predictor1, predictor2, training_params)
-        latency = Latency.compute_during_inference(predictor1, predictor2, training_params)
-        data_efficiency = DataEfficiency.compute_during_inference(predictor1, predictor2, training_params)
-    return {'energy': energy, 'memory': memory, 'latency': latency, 'data_efficiency': data_efficiency}
-
-
-def compute_metrics_training(predictor1: Model, predictor2: Model, dataset: pd.DataFrame):
-    return _compute_metrics(predictor1, predictor2, dataset, True)
-
-
-def compute_metrics_inference(predictor1: Model, predictor2: Model, dataset: pd.DataFrame):
-    return _compute_metrics(predictor1, predictor2, dataset, False)
+        raise Exception('Unknown metric')
