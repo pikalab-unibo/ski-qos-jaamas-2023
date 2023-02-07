@@ -11,7 +11,7 @@ If you specify:
 Datasets are not tracked by git, so you first need to execute this command before doing anything else.
 
 
-### [Wisconsin breast cancer dataset](https://archive.ics.uci.edu/ml/datasets/breast+cancer+wisconsin+(diagnostic)) (breast cancer)
+### [Wisconsin breast cancer dataset](https://archive.ics.uci.edu/ml/datasets/breast+cancer+wisconsin+%28original%29) (breast cancer)
 It represents clinical data of patients.
 It consists of 9 categorical ordinal features:
 1. Clump Thickness
