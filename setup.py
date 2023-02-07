@@ -115,12 +115,9 @@ class RunExperiments(distutils.cmd.Command):
         pass
 
     def run(self) -> None:
-        # datasets = [BreastCancer, SpliceJunction, CensusIncome]
-        datasets = [SpliceJunction]
-        # injectors = [Injector.kins, Injector.kill, Injector.kbann]
-        injectors = [Injector.kill]
-        # injector_names = ['kins', 'kill', 'kbann']
-        injector_names = ['kill']
+        datasets = [BreastCancer, SpliceJunction, CensusIncome]
+        injectors = [Injector.kins, Injector.kill, Injector.kbann]
+        injector_names = ['kins', 'kill', 'kbann']
         metrics_names = ['energy', 'memory', 'latency', 'data efficiency']
         columns = metrics_names + ['accuracy']
         # Iterate over datasets
