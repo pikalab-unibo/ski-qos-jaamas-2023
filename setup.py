@@ -115,9 +115,12 @@ class RunExperiments(distutils.cmd.Command):
         pass
 
     def run(self) -> None:
-        datasets = [BreastCancer, SpliceJunction, CensusIncome]
-        injectors = [Injector.kins, Injector.kill, Injector.kbann]
-        injector_names = ['kins', 'kill', 'kbann']
+        # datasets = [BreastCancer, SpliceJunction, CensusIncome]
+        datasets = [SpliceJunction]
+        # injectors = [Injector.kins, Injector.kill, Injector.kbann]
+        injectors = [Injector.kill]
+        # injector_names = ['kins', 'kill', 'kbann']
+        injector_names = ['kill']
         metrics_names = ['energy', 'memory', 'latency', 'data efficiency']
         columns = metrics_names + ['accuracy']
         # Iterate over datasets
@@ -138,8 +141,6 @@ class RunExperiments(distutils.cmd.Command):
                 else:
                     educated_neurons = uneducated_neurons
                 formulae = TuProlog.from_file(KNOWLEDGE_PATH / dataset.knowledge_file_name).formulae
-                for formula in formulae:
-                    formula.trainable = True
                 # KILL injector needs the class mapping
                 injection_params = {'feature_mapping': {k: v for v, k in enumerate(train_data.columns)}}
                 if injector_name == 'kill':
@@ -240,7 +241,7 @@ setup(
     include_package_data=True,
     python_requires='>=3.9.0, <3.10',
     install_requires=[
-        'psyki>=0.2.15.dev2',
+        'psyki>=0.2.19',
         'psyke>=0.3.3.dev13',
         'tensorflow>=2.7.0',
         'numpy>=1.22.3',

@@ -15,7 +15,6 @@ from tensorflow.keras import Model, Input
 from tensorflow.keras.layers import Dense
 from tensorflow.python.framework.random_seed import set_seed
 from tensorflow.python.keras.callbacks import EarlyStopping
-
 from datasets import SpliceJunction, BreastCancer, CensusIncome
 from psyki.logic.prolog import TuProlog
 from knowledge import PATH as KNOWLEDGE_PATH
@@ -80,7 +79,11 @@ def create_educated_nn(input_layer: int, output_layer: int, hidden_layers: int, 
                        formulae: list[Formula], injector_params: dict) -> Model:
     model = create_nn(input_layer, output_layer, hidden_layers, neurons)
     injector = injector(model, **injector_params)
-    educated_model = injector.inject(formulae)
+    defensive_copy = [f.copy() for f in formulae]
+    for formula in defensive_copy:
+        formula.optimize()
+        formula.trainable = True
+    educated_model = injector.inject(defensive_copy)
     educated_model.compile(optimizer="adam", loss=LOSS, metrics="accuracy")
     return educated_model
 
