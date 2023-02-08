@@ -45,7 +45,7 @@ Splice Junction: 3190 -> 2127 | 163
 Census Income: 32561 | 16281
 """
 
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 EPOCHS = 100
 VERBOSE = 0
 SEED = 0
@@ -55,7 +55,7 @@ NEURONS_PER_LAYERS = [10, 50, 100]
 LAYERS = [1, 2, 3]
 ACCEPTABLE_ACCURACY_DROP = 0.95
 ACCEPTABLE_ACCURACY = 0.8
-CALLBACK = EarlyStopping(monitor="accuracy", patience=5, restore_best_weights=True, baseline=ACCEPTABLE_ACCURACY)
+CALLBACK = []
 
 sys.setrecursionlimit(2000)
 
@@ -151,14 +151,10 @@ def grid_search(dataset_name: str, grid_search_params: dict, creator: Callable):
                 'feature_mapping': {k: v for v, k in enumerate(dataset['train_x'].columns)}
             }]
     if 'accuracy' in grid_search_params.keys():
-        threshold = grid_search_params['accuracy'] * ACCEPTABLE_ACCURACY_DROP
-        callback = EarlyStopping(monitor="accuracy", patience=5, restore_best_weights=True, baseline=threshold)
         grid_search_params.pop('accuracy')
-    else:
-        callback = CALLBACK
     predictor = KerasClassifier(creator, **grid_search_params, random_state=SEED)
     gs = GridSearchCV(predictor, grid_search_params, cv=2, n_jobs=1, )
-    gs.fit(dataset['train_x'], dataset['train_y'], epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=VERBOSE, callbacks=[callback])
+    gs.fit(dataset['train_x'], dataset['train_y'], epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=VERBOSE, callbacks=CALLBACK)
     gs.best_params_['accuracy'] = gs.best_score_
     return gs.best_params_
 

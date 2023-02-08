@@ -1,6 +1,5 @@
 import distutils.cmd
 import itertools
-
 import numpy as np
 import pandas as pd
 from psyki.logic.prolog import TuProlog
@@ -8,7 +7,6 @@ from psyki.ski import Injector
 from psyki.ski.kill import LambdaLayer
 from setuptools import setup, find_packages
 from tensorflow.python.framework.random_seed import set_seed
-
 from datasets import load_splice_junction_dataset, load_breast_cancer_dataset, load_census_income_dataset, \
     SpliceJunction, BreastCancer, CensusIncome
 from experiment import grid_search, create_nn, create_educated_nn, NEURONS_PER_LAYERS, LAYERS, filter_neurons, \
@@ -172,6 +170,8 @@ class RunExperiments(distutils.cmd.Command):
                             uneducated.fit(train_data.iloc[:, :-1], train_data.iloc[:, -1:], epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=VERBOSE, callbacks=CALLBACK)
                             accuracies_uneducated.append(uneducated.evaluate(test_data.iloc[:, :-1], test_data.iloc[:, -1:])[1])
                             set_seed(SEED + idx)
+                            for formula in formulae:
+                                formula.trainable = True
                             educated = create_educated_nn(len(train_data.columns) - 1, len(dataset.class_mapping_short), layers, educated_neurons, injector, formulae, injection_params)
                             educated.fit(train_data.iloc[:, :-1], train_data.iloc[:, -1:], epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=VERBOSE, callbacks=CALLBACK)
                             if injector_name == 'kill' and isinstance(educated, LambdaLayer.ConstrainedModel):

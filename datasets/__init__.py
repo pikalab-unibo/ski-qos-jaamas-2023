@@ -105,7 +105,7 @@ def load_splice_junction_dataset(binary_features: bool = False, numeric_output: 
         df.columns = SpliceJunction.features + ['class']
 
     # Split the dataframe into train and test sets
-    train_df, test_df = train_test_split(df, test_size=TEST_SIZE, random_state=SEED)
+    train_df, test_df = train_test_split(df, test_size=TEST_SIZE, random_state=SEED, stratify=df.iloc[:, -1])
     return train_df, test_df
 
 
@@ -116,7 +116,7 @@ def load_breast_cancer_dataset(binary_features: bool = False, numeric_output: bo
     df.diagnosis = df.diagnosis.apply(lambda x: 0 if x == 2 else 1) if numeric_output else df.diagnosis
     df.BareNuclei = df.BareNuclei.apply(lambda x: 0 if x == '?' else x).astype(int)
     # Split the dataframe into train and test sets
-    train_df, test_df = train_test_split(df, test_size=TEST_SIZE, random_state=SEED)
+    train_df, test_df = train_test_split(df, test_size=TEST_SIZE, random_state=SEED, stratify=df.iloc[:, -1])
 
     return train_df, test_df
 
