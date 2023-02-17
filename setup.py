@@ -11,7 +11,7 @@ from datasets import load_splice_junction_dataset, load_breast_cancer_dataset, l
     SpliceJunction, BreastCancer, CensusIncome
 from experiment import grid_search, create_nn, create_educated_nn, NEURONS_PER_LAYERS, LAYERS, filter_neurons, \
     compute_metrics_training, compute_metrics_inference, EPOCHS, BATCH_SIZE, VERBOSE, SEED, CALLBACK, POPULATION_SIZE, \
-    LOSS
+    LOSS, run_experiments
 from knowledge import generate_missing_knowledge, PATH as KNOWLEDGE_PATH
 from results import PATH as RESULT_PATH
 
@@ -118,103 +118,32 @@ class RunExperiments(distutils.cmd.Command):
         injector_names = ['kins', 'kill', 'kbann']
         metrics_names = ['energy', 'memory', 'latency', 'data efficiency']
         columns = metrics_names + ['accuracy']
-        # Iterate over datasets
-        for dataset in datasets:
-            print('\n\n' + dataset.name)
-            results_training = pd.DataFrame(columns=columns)
-            results_inference = pd.DataFrame(columns=columns)
-            train_data = pd.read_csv(dataset.file_name)
-            test_data = pd.read_csv(dataset.file_name_test)
-            best_params = pd.read_csv(RESULT_PATH / (dataset.name + '.csv'), index_col=0)
-            uneducated_neurons = eval(best_params.loc['uneducated']['neurons'])
-            layers = len(uneducated_neurons)
-            # Iterate over injectors
-            for injector, injector_name in zip(injectors, injector_names):
-                print(injector_name)
-                if injector_name != 'kbann':
-                    educated_neurons = eval(best_params.loc[injector_name]['neurons'])
-                else:
-                    educated_neurons = uneducated_neurons
-                formulae = TuProlog.from_file(KNOWLEDGE_PATH / dataset.knowledge_file_name).formulae
-                # KILL injector needs the class mapping
-                injection_params = {'feature_mapping': {k: v for v, k in enumerate(train_data.columns)}}
-                if injector_name == 'kill':
-                    injection_params['class_mapping'] = dataset.class_mapping_short
-                # Create the educated predictor
-                set_seed(SEED)
-                educated = create_educated_nn(len(train_data.columns) - 1, len(dataset.class_mapping_short), layers,
-                                              educated_neurons, injector, formulae, injection_params)
-                for metric in metrics_names:
-                    params = {
-                        'x': train_data.iloc[:, :-1],
-                        'y': train_data.iloc[:, -1:],
-                        'epochs': EPOCHS,
-                        'batch_size': BATCH_SIZE,
-                        'verbose': VERBOSE,
-                        'metric': metric
-                    }
+        run_experiments(datasets, injectors, injector_names, metrics_names, columns)
 
-                    # Create the uneducated predictor
-                    set_seed(SEED)
-                    uneducated = create_nn(len(train_data.columns) - 1, len(dataset.class_mapping), layers, uneducated_neurons)
-                    if metric != 'data efficiency':
-                        results_training.loc[injector_name, metric] = compute_metrics_training(uneducated, educated, params)
-                    else:
-                        # Compute accuracy over POPULATION_SIZE (30) runs to get a statistically significant result
-                        accuracies_educated = []
-                        accuracies_uneducated = []
-                        for idx in range(POPULATION_SIZE):
-                            print("Training and computing accuracy for run " + str(idx + 1) + " of " + str(POPULATION_SIZE) + "...")
-                            set_seed(SEED + idx)
-                            uneducated = create_nn(len(train_data.columns) - 1, len(dataset.class_mapping), layers, uneducated_neurons)
-                            uneducated.fit(train_data.iloc[:, :-1], train_data.iloc[:, -1:], epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=VERBOSE, callbacks=CALLBACK)
-                            accuracies_uneducated.append(uneducated.evaluate(test_data.iloc[:, :-1], test_data.iloc[:, -1:])[1])
-                            set_seed(SEED + idx)
-                            for formula in formulae:
-                                formula.trainable = True
-                            educated = create_educated_nn(len(train_data.columns) - 1, len(dataset.class_mapping_short), layers, educated_neurons, injector, formulae, injection_params)
-                            educated.fit(train_data.iloc[:, :-1], train_data.iloc[:, -1:], epochs=EPOCHS, batch_size=BATCH_SIZE, verbose=VERBOSE, callbacks=CALLBACK)
-                            if injector_name == 'kill' and isinstance(educated, LambdaLayer.ConstrainedModel):
-                                educated = educated.remove_constraints()
-                                educated.compile(optimizer='adam', loss=LOSS, metrics=['accuracy'])
-                            accuracies_educated.append(educated.evaluate(test_data.iloc[:, :-1], test_data.iloc[:, -1:])[1])
 
-                        accuracy_history = pd.DataFrame({'uneducated': accuracies_uneducated, 'educated': accuracies_educated})
-                        accuracy_history.to_csv(RESULT_PATH / (dataset.name + '_' + injector_name + '_accuracy.csv'))
-                        params['train_x1'] = train_data.iloc[:, :-1]
-                        params['train_y1'] = train_data.iloc[:, -1:]
-                        params['train_x2'] = train_data.iloc[:, :-1]
-                        params['train_y2'] = train_data.iloc[:, -1:]
-                        params['epochs1'] = EPOCHS
-                        params['epochs2'] = EPOCHS
-                        params['metric1'] = np.mean(accuracies_uneducated)
-                        params['metric2'] = np.mean(accuracies_educated)
-                        params.pop('x')
-                        params.pop('y')
-                        params.pop('epochs')
+class UpdateExperiments(distutils.cmd.Command):
+    """A custom command to update all metrics but data efficiency."""
 
-                    params['metric'] = metric
-                    # KILL injector needs the constraints to be removed
-                    if injector_name == 'kill' and isinstance(educated, LambdaLayer.ConstrainedModel):
-                        educated = educated.remove_constraints()
-                        educated.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-                    if metric == 'data efficiency':
-                        params['metric'] = metric
-                        data_efficiency = compute_metrics_inference(uneducated, educated, params)
-                        results_training.loc[injector_name, metric] = data_efficiency
-                        results_inference.loc[injector_name, metric] = results_training.loc[injector_name, metric]
-                        results_training.loc[injector_name, 'accuracy'] = params['metric2']
-                        results_inference.loc[injector_name, 'accuracy'] = params['metric2']
-                        results_training.loc[injector_name, 'accuracy uneducated'] = params['metric1']
-                        results_inference.loc[injector_name, 'accuracy uneducated'] = params['metric1']
-                    else:
-                        params.pop('y')
-                        params.pop('epochs')
-                        params.pop('batch_size')
-                        results_inference.loc[injector_name, metric] = compute_metrics_inference(uneducated, educated, params)
+    description = 'Update all metrics but data efficiency'
+    user_options = []
 
-            results_training.to_csv(RESULT_PATH / (dataset.name + '_metrics_training.csv'))
-            results_inference.to_csv(RESULT_PATH / (dataset.name + '_metrics_inference.csv'))
+    def initialize_options(self):
+        """Set default values for options."""
+        # Each user option must be listed here with their default value.
+        pass
+
+    def finalize_options(self):
+        """Post-process options."""
+        pass
+
+    def run(self):
+        """Run command."""
+        datasets = [BreastCancer, SpliceJunction, CensusIncome]
+        injectors = [Injector.kins, Injector.kill, Injector.kbann]
+        injector_names = ['kins', 'kill', 'kbann']
+        metrics_names = ['energy', 'memory', 'latency']
+        # Load old results
+        run_experiments(datasets, injectors, injector_names, metrics_names, metrics_names, update=True)
 
 
 setup(
@@ -251,5 +180,6 @@ setup(
         'generate_missing_knowledge': GenerateMissingKnowledge,
         'run_experiments': RunExperiments,
         'grid_search': FindBestConfiguration,
+        'update_experiments': UpdateExperiments,
     },
 )
