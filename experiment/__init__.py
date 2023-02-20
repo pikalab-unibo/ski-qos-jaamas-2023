@@ -42,7 +42,7 @@ Output layer   -> number of classes (2, 3, 2)
 
 Dataset
 Breast Cancer: 699 -> 466 | 233
-Splice Junction: 3190 -> 2127 | 163
+Splice Junction: 3190 -> 2127 | 1063
 Census Income: 32561 | 16281
 """
 
@@ -244,8 +244,8 @@ def run_experiments(datasets: list[SpliceJunction or BreastCancer or CensusIncom
                                                uneducated_neurons)
                         uneducated.fit(train_data.iloc[:, :-1], train_data.iloc[:, -1:], epochs=EPOCHS,
                                        batch_size=BATCH_SIZE, verbose=VERBOSE, callbacks=CALLBACK)
-                        accuracies_uneducated.append(
-                            uneducated.evaluate(test_data.iloc[:, :-1], test_data.iloc[:, -1:])[1])
+                        accuracy_percent = 100 * uneducated.evaluate(test_data.iloc[:, :-1], test_data.iloc[:, -1:])[1]
+                        accuracies_uneducated.append(accuracy_percent)
                         set_seed(SEED + idx)
                         for formula in formulae:
                             formula.trainable = True
@@ -256,7 +256,8 @@ def run_experiments(datasets: list[SpliceJunction or BreastCancer or CensusIncom
                         if injector_name == 'kill' and isinstance(educated, LambdaLayer.ConstrainedModel):
                             educated = educated.remove_constraints()
                             educated.compile(optimizer='adam', loss=LOSS, metrics=['accuracy'])
-                        accuracies_educated.append(educated.evaluate(test_data.iloc[:, :-1], test_data.iloc[:, -1:])[1])
+                        accuracy_percent = 100 * educated.evaluate(test_data.iloc[:, :-1], test_data.iloc[:, -1:])[1]
+                        accuracies_educated.append(accuracy_percent)
 
                     accuracy_history = pd.DataFrame(
                         {'uneducated': accuracies_uneducated, 'educated': accuracies_educated})
@@ -291,12 +292,11 @@ def run_experiments(datasets: list[SpliceJunction or BreastCancer or CensusIncom
                     params.pop('y')
                     params.pop('epochs')
                     params.pop('batch_size')
-                    results_inference.loc[injector_name, metric] = compute_metrics_inference(uneducated, educated,
-                                                                                             params)
+                    results_inference.loc[injector_name, metric] = compute_metrics_inference(uneducated, educated, params)
 
         if update:
-            results_training.to_csv(RESULTS_PATH / (dataset.name + '_metrics_training.csv'), mode='a', header=False)
-            results_inference.to_csv(RESULTS_PATH / (dataset.name + '_metrics_inference.csv'), mode='a', header=False)
+            results_training.to_csv(RESULTS_PATH / (dataset.name + '_metrics_training.csv'), mode='+', float_format='%.2f')
+            results_inference.to_csv(RESULTS_PATH / (dataset.name + '_metrics_inference.csv'), mode='+', float_format='%.2f')
         else:
-            results_training.to_csv(RESULTS_PATH / (dataset.name + '_metrics_training.csv'))
-            results_inference.to_csv(RESULTS_PATH / (dataset.name + '_metrics_inference.csv'))
+            results_training.to_csv(RESULTS_PATH / (dataset.name + '_metrics_training.csv'), float_format='%.2f')
+            results_inference.to_csv(RESULTS_PATH / (dataset.name + '_metrics_inference.csv'), float_format='%.3f')
