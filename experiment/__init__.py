@@ -295,11 +295,12 @@ def run_experiments(datasets: list[SpliceJunction or BreastCancer or CensusIncom
                     results_inference.loc[injector_name, metric] = compute_metrics_inference(uneducated, educated, params)
 
         if update:
-            read_training = pd.read_csv(RESULTS_PATH / (dataset.name + '_metrics_training.csv'))
-            read_inference = pd.read_csv(RESULTS_PATH / (dataset.name + '_metrics_inference.csv'))
+            read_training = pd.read_csv(RESULTS_PATH / (dataset.name + '_metrics_training.csv'), index_col=0)
+            read_inference = pd.read_csv(RESULTS_PATH / (dataset.name + '_metrics_inference.csv'), index_col=0)
             read_training.update(results_training.astype(float).round(2))
             read_inference.update(results_inference.astype(float).round(2))
-
+            read_training.astype(float).round(2).to_csv(RESULTS_PATH / (dataset.name + '_metrics_training.csv'))
+            read_inference.astype(float).round(2).to_csv(RESULTS_PATH / (dataset.name + '_metrics_inference.csv'))
         else:
             results_training.astype(float).round(2).to_csv(RESULTS_PATH / (dataset.name + '_metrics_training.csv'))
             results_inference.astype(float).round(2).to_csv(RESULTS_PATH / (dataset.name + '_metrics_inference.csv'))
