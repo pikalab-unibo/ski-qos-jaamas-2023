@@ -1,5 +1,5 @@
 # ski-qos-jaamas-2023
-Experiments for "Quality-of-Servoce Metrics for Intelligent Agents exploiting Symbolic Knowledge Injection via PSyKI" (JAAMAS).
+Experiments for "Quality-of-Service Metrics for Intelligent Agents exploiting Symbolic Knowledge Injection via PSyKI" (JAAMAS).
 
 ## 1. Download datasets
 Execute the command ```python -m setup load_datasets [-f] [-o]``` to download datasets from UCI website.
