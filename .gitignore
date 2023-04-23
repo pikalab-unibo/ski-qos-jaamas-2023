@@ -9,7 +9,7 @@
 *.names
 
 # Datasets
-datasets/*.csv
+# datasets/*.csv
 
 # Generable knowledge
 knowledge/census-income.pl
