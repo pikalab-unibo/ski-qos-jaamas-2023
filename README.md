@@ -1,5 +1,35 @@
-# ski-qos-jaamas-2023
+# Symbolic knowledge injection meets intelligent agents
 Experiments for "Quality-of-Service Metrics for Intelligent Agents exploiting Symbolic Knowledge Injection via PSyKI" (JAAMAS).
+
+
+### Reference paper
+
+> Andrea Agiollo, Andrea Rafanelli, Matteo Magnini, Giovanni Ciatto, Andrea Omicini. "[Symbolic knowledge injection meets intelligent agents: QoS metrics and experiments]", in: Auton. Agents Multi Agent Syst. 37(2): 27 (2023).
+
+Bibtex: 
+```bibtex
+@article{DBLP:journals/aamas/ARMCO23,
+  author       = {Andrea Agiollo and
+                  Andrea Rafanelli and
+                  Matteo Magnini and
+                  Giovanni Ciatto and
+                  Andrea Omicini},
+  title        = {Symbolic knowledge injection meets intelligent agents: QoS metrics
+                  and experiments},
+  journal      = {Auton. Agents Multi Agent Syst.},
+  volume       = {37},
+  number       = {2},
+  pages        = {27},
+  year         = {2023},
+  url          = {https://doi.org/10.1007/s10458-023-09609-6},
+  doi          = {10.1007/S10458-023-09609-6},
+  timestamp    = {Tue, 12 Sep 2023 07:57:44 +0200},
+  biburl       = {https://dblp.org/rec/journals/aamas/AgiolloRMCO23.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
+}
+```
+
+-------------------------------------------------------------------------------------
 
 ## 1. Download datasets
 Execute the command ```python -m setup load_datasets [-f] [-o]``` to download datasets from UCI website.
